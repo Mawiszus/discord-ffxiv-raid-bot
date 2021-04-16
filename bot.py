@@ -12,7 +12,6 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 bot = commands.Bot(command_prefix='$')
 
 
-
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} has connected to Discord!')
@@ -37,7 +36,8 @@ async def hello(ctx):
 async def talkin_shit(ctx):
     await ctx.send('https://tenor.com/view/ffxiv-ff14-namazu-heard-you-talkin-shit-gif-15779424')
 
-@bot.command()
+
+@bot.command(name='dm', help='Sends you a dm')
 async def dm(ctx):
     await ctx.author.send('Hello')
 
