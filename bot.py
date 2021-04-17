@@ -42,7 +42,4 @@ async def dm(ctx):
     await ctx.author.send('Hello')
 
 
-
-
-
 bot.run(TOKEN)

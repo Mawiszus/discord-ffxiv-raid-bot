@@ -4,14 +4,6 @@ from datetime import datetime
 from tqdm import tqdm
 
 COLUMNS = ["discord_id", "character_name", "jobs", "num_raids"]
-TANKS = ["WAR", "PLD", "DRK", "GNB"]
-HEALERS = ["WHM", "SCH", "AST"]
-MELEES = ["MNK", "DRG", "NIN", "SAM"]
-RANGED = ["BRD", "MCH", "DNC"]
-CASTERS = ["BLM", "SMN", "RDM"]
-LIMITED = ["BLU"]
-DPS = [*MELEES, *RANGED, *CASTERS]
-JOBS = [*TANKS, *HEALERS, *DPS]
 
 
 def create_connection(db_file):
@@ -79,6 +71,32 @@ def update_jobs(conn, job_list, discord_id, character_name):
     update_player(conn, "jobs", job_list, discord_id, character_name)
 
 
+def delete_player(conn, id, name):
+    """
+    Delete a player by discord_id and character_name
+    :param conn:  Connection to the SQLite database
+    :param id: discord_id of the player
+    :param name: character_name of the player
+    :return:
+    """
+    sql = 'DELETE FROM player WHERE discord_id=? AND character_name=?'
+    cur = conn.cursor()
+    cur.execute(sql, (id, name))
+    conn.commit()
+
+
+def delete_all_players(conn):
+    """
+    Delete all rows in the tasks table
+    :param conn: Connection to the SQLite database
+    :return:
+    """
+    sql = 'DELETE FROM player'
+    cur = conn.cursor()
+    cur.execute(sql)
+    conn.commit()
+
+
 if __name__ == '__main__':
 
     sql_create_player_table = """ CREATE TABLE IF NOT EXISTS player (
@@ -97,6 +115,9 @@ if __name__ == '__main__':
         # create Player table
         create_table(conn, sql_create_player_table)
 
+        # delete table (for testing purposes)
+        delete_all_players(conn)
+
         # create a new Player
         for i in tqdm(range(100)):
             player = (1234567890 + i, "Nama Zu", "PLD,DNC,SAM,MCH", datetime.today().strftime('%Y-%m-%d'), 0)
@@ -106,3 +127,15 @@ if __name__ == '__main__':
         update_player(conn, "character_name", "Na Mazu", 1234567904, "Nama Zu")
         update_player(conn, "jobs", "SAM", 1234567904, "Na Mazu")
         update_player(conn, "num_raids", 10, 1234567904, "Na Mazu")
+
+        # delete player
+        delete_player(conn, 1234567905, "Nama Zu")
+
+        # fetch a player
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM player WHERE discord_id=?", (1234567906,))
+
+        rows = cur.fetchall()
+
+        for row in rows:
+            print(row)
