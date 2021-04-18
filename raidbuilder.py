@@ -1,6 +1,8 @@
 import itertools
 import time
 
+from database import get_player
+
 TANKS = ["WAR", "PLD", "DRK", "GNB"]
 HEALERS = ["WHM", "SCH", "AST"]
 MELEES = ["MNK", "DRG", "NIN", "SAM"]
@@ -35,6 +37,14 @@ class Character:
                 print(f"{job} already registered")
             else:
                 print(f"{job} is not a valid job")
+
+
+def make_character_from_db(conn, discord_id, name):
+    p = get_player(conn, discord_id, name)
+    if p:
+        return Character(p[1], p[2], p[3])
+    else:
+        print(f"No Character with id {discord_id} and name {name} found in db.")
 
 
 def calc_composition_score(combination: tuple[Character], picked_jobs: tuple, n_tanks: int, n_healers: int, n_dps: int):
