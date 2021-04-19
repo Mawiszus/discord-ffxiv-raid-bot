@@ -42,4 +42,12 @@ async def dm(ctx):
     await ctx.author.send('Hello')
 
 
+@bot.event
+async def on_message(message: discord.Message):
+    if message.guild is None and not message.author.bot:
+        print(message.content)
+        await message.author.send(message.content)
+    else:
+        await bot.process_commands(message)
+
 bot.run(TOKEN)
