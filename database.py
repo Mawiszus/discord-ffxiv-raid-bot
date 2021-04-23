@@ -8,7 +8,7 @@ PLAYER_COLUMNS = ["discord_id", "character_name", "jobs", "num_raids"]
 EVENT_COLUMNS = ["name", "timestamp", "participant_names", "participant_ids", "jobs", "state"]
 
 
-def create_connection(db_file):
+def create_connection(db_file: str):
     """ create a database connection to a SQLite database """
     conn = None
     try:
@@ -22,7 +22,7 @@ def create_connection(db_file):
     return conn
 
 
-def create_table(conn, create_table_sql):
+def create_table(conn, create_table_sql: str):
     """ create a table from the create_table_sql statement
     :param conn: Connection object
     :param create_table_sql: a CREATE TABLE statement
@@ -35,7 +35,7 @@ def create_table(conn, create_table_sql):
         print(e)
 
 
-def create_player(conn, player):
+def create_player(conn, player: str):
     """
     Create a new player into the player table
     :param conn:
@@ -122,7 +122,11 @@ def create_event(conn, event):
 
 
 def find_events(conn, field, value):
-    """Find the id of an event by searching for other fields"""
+    """
+    Find the id of an event by searching for other fields
+    :param field: The database field/column that will be searched
+    :param value: The value being searched
+    """
     cur = conn.cursor()
     if isinstance(value, str):
         # Add wildcard
@@ -131,7 +135,7 @@ def find_events(conn, field, value):
     return cur.fetchall()
 
 
-def get_last_x_events(conn, x):
+def get_last_x_events(conn, x: int):
     """Returns the x latest events"""
     sql = ''' SELECT * FROM events
               ORDER BY rowid DESC
