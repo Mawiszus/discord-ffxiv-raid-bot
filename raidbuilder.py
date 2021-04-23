@@ -1,7 +1,7 @@
 import itertools
 import time
 
-from database import get_player
+from database import get_player, get_player_by_id, get_player_by_name
 
 TANKS = ["WAR", "PLD", "DRK", "GNB"]
 HEALERS = ["WHM", "SCH", "AST"]
@@ -11,6 +11,14 @@ CASTERS = ["BLM", "SMN", "RDM"]
 LIMITED = ["BLU"]
 DPS = [*MELEES, *RANGED, *CASTERS]
 JOBS = [*TANKS, *HEALERS, *DPS]
+
+
+def string_from_list(lt):
+    ret_string = ""
+    for n in lt:
+        ret_string += n + ", "
+    ret_string = ret_string[:-2]
+    return ret_string
 
 
 def job_string_to_list(job_string: str):
@@ -38,13 +46,28 @@ class Character:
             else:
                 print(f"{job} is not a valid job")
 
+    def get_overview_string(self):
+        jobs_string = string_from_list(self.jobs)
+
+        out = f"```\n" \
+              f"Character name: {self.character_name}\n" \
+              f"Jobs:           {jobs_string}\n" \
+              f"This character is owned by @{self.discord_id}.```"
+        return out
+
 
 def make_character_from_db(conn, discord_id, name):
-    p = get_player(conn, discord_id, name)
+    if discord_id and not name:
+        p = get_player_by_id(conn, discord_id)[0]
+    elif name and not discord_id:
+        p = get_player_by_name(conn, name)[0]
+    else:
+        p = get_player(conn, discord_id, name)[0]
+
     if p:
         return Character(p[1], p[2], p[3])
     else:
-        print(f"No Character with id {discord_id} and name {name} found in db.")
+        raise ValueError(f"No Character with id {discord_id} and name {name} found in db.")
 
 
 def calc_composition_score(combination: tuple[Character], picked_jobs: tuple, n_tanks: int, n_healers: int, n_dps: int):

@@ -13,7 +13,7 @@ def create_connection(db_file):
     conn = None
     try:
         conn = sqlite3.connect(db_file)
-        print(sqlite3.version)
+        # print(sqlite3.version)
     except Error as e:
         print(e)
     # finally:
@@ -54,6 +54,20 @@ def get_player(conn, discord_id, name):
     """Find the player given id and name"""
     cur = conn.cursor()
     cur.execute(f"SELECT * FROM players WHERE discord_id=? AND character_name=?", (discord_id, name))
+    return cur.fetchall()
+
+
+def get_player_by_id(conn, discord_id):
+    """Find the player given id"""
+    cur = conn.cursor()
+    cur.execute(f"SELECT * FROM players WHERE discord_id=?", (discord_id,))
+    return cur.fetchall()
+
+
+def get_player_by_name(conn, name):
+    """Find the player given id"""
+    cur = conn.cursor()
+    cur.execute(f"SELECT * FROM players WHERE character_name=?", (name,))
     return cur.fetchall()
 
 
@@ -128,6 +142,13 @@ def find_events(conn, field, value):
         # Add wildcard
         value = f"%{value}%"
     cur.execute(f"SELECT * FROM events WHERE {field} LIKE ?", (value,))
+    return cur.fetchall()
+
+
+def get_event(conn, event_id):
+    """Find event given id"""
+    cur = conn.cursor()
+    cur.execute(f"SELECT * FROM events WHERE id=?", (event_id,))
     return cur.fetchall()
 
 
