@@ -1,13 +1,17 @@
 # bot.py
+import datetime
 import os
 import random
+import traceback
 
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+from pytz import timezone
+from pytz.exceptions import UnknownTimeZoneError
 
-from event import make_event_from_db
-from database import create_connection
+from event import make_event_from_db, Event
+from database import create_connection, create_event
 from raidbuilder import make_character_from_db
 from emoji_dict import emoji_dict
 
@@ -19,10 +23,16 @@ def job_emoji_str(job_list):
     return emoji_str
 
 
+def role_num_emoji_str(n_tanks, n_healers, n_dps):
+    return f"{n_tanks} {emoji_dict['Tank']} {n_healers} {emoji_dict['Healer']} {n_dps} {emoji_dict['DPS']}"
+
+
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-bot = commands.Bot(command_prefix='$')
+intents = discord.Intents().default()
+intents.members = True
+bot = commands.Bot(command_prefix='$', intents=intents)
 
 
 @bot.event
@@ -57,14 +67,25 @@ async def dm(ctx):
 
 @bot.command(name='display-event', help='displays an event from the database given its id')
 async def display_event(ctx, event_id):
-    conn = create_connection(r"database/test.db")
+    conn = create_connection(r"database/test_2.db")
     if conn is not None:
         try:
             event = make_event_from_db(conn, event_id)
-            embed = discord.Embed(title=f"**Event {event_id}**", color=discord.Color.dark_gold())
+            try:
+                creator = ctx.guild.get_member(event.creator_id)
+                creator_name = creator.name if creator.nick is None else creator.nick
+            except Exception:
+                creator_name = "INVALID_MEMBER"
+            embed = discord.Embed(title=f"**Event {event_id}**",
+                                  description=f"Organized by **{creator_name}**",
+                                  color=discord.Color.dark_gold())
             embed.add_field(name="**Name**", value=event.name, inline=False)
-            embed.add_field(name="**Participants**", value=event.participants_as_str(), inline=False)
-            embed.add_field(name="**Jobs**", value=job_emoji_str(event.jobs), inline=False)
+            if event.participant_names:
+                embed.add_field(name="**Participants**", value=event.participants_as_str(), inline=False)
+            if event.jobs:
+                embed.add_field(name="**Jobs**", value=job_emoji_str(event.jobs), inline=False)
+            else:
+                embed.add_field(name="**Required Roles**", value=role_num_emoji_str(*event.role_numbers), inline=False)
             embed.add_field(name="**Time**", value=event.get_time(), inline=False)
             embed.set_footer(text=f"This event is {event.state}")
             await ctx.send(embed=embed)
@@ -88,6 +109,86 @@ async def show_player(ctx, discord_id):
             await ctx.send(f'Could not find player with id {num_id}. This player might not be registered (yet).')
     else:
         await ctx.send('Could not connect to database :(')
+
+
+@bot.command(name='make-event', help='creates an event given parameters: '
+                                     'name, date (format d-m-y), time (format HH:MM), '
+                                     'num_Tanks, num_Heals, num_DPS, timezone (optional, default GMT)')
+async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps, user_timezone="GMT"):
+    conn = create_connection(r"database/test_2.db")
+    if conn is not None:
+        try:
+            tz = timezone(user_timezone)
+        except Exception:
+            await ctx.send(f"Unknown timezone {user_timezone}, use format like 'Europe/Amsterdam'")
+            return
+
+        try:
+            d, m, y = date.split("-")
+            hour, minute = start_time.split(":")
+            dt_obj = datetime.datetime(int(y), int(m), int(d), int(hour), int(minute), tzinfo=tz)
+        except Exception:
+            await ctx.send(f"Could not parse date and/or time, make sure to format like this: "
+                           f"dd-mm-yyyy hh:mm (in 24 hour format)")
+            return
+
+        event_tup = (name, int(dt_obj.timestamp()), None, None, None,
+                     None, f"{num_tanks},{num_heals},{num_dps}", int(ctx.message.author.mention[2:-1]), "RECRUITING")
+        ev_id = create_event(conn, event_tup)
+
+        try:
+            event = make_event_from_db(conn, ev_id)
+            try:
+                creator = ctx.guild.get_member(event.creator_id)
+                creator_name = creator.name if creator.nick is None else creator.nick
+            except Exception:
+                creator_name = "INVALID_MEMBER"
+            embed = discord.Embed(title=f"**Event {ev_id}**",
+                                  description=f"Organized by **{creator_name}**",
+                                  color=discord.Color.dark_gold())
+            embed.add_field(name="**Name**", value=event.name, inline=False)
+            if event.participant_names:
+                embed.add_field(name="**Participants**", value=event.participants_as_str(), inline=False)
+            if event.jobs:
+                embed.add_field(name="**Jobs**", value=job_emoji_str(event.jobs), inline=False)
+            else:
+                embed.add_field(name="**Required Roles**", value=role_num_emoji_str(*event.role_numbers), inline=False)
+            embed.add_field(name="**Time**", value=event.get_time(), inline=False)
+            embed.set_footer(text=f"This event is {event.state}")
+            await ctx.send(embed=embed)
+        except Exception:
+            await ctx.send(f'Could not find event with id {ev_id}. This event might not exist (yet).')
+    else:
+        await ctx.send('Could not connect to database. Need connection to create and save events.')
+
+
+@bot.event
+async def on_command_error(ctx, error):
+    # adapted from RemixBot https://github.com/cree-py/RemixBot
+    send_help = (commands.MissingRequiredArgument, commands.BadArgument, commands.TooManyArguments, commands.UserInputError)
+
+    if isinstance(error, commands.CommandNotFound):  # fails silently
+        pass
+
+    elif isinstance(error, send_help):
+        _help = await send_cmd_help(ctx)
+        await ctx.send(embed=_help)
+
+    elif isinstance(error, commands.CommandOnCooldown):
+        await ctx.send(f'This command is on cooldown. Please wait {error.retry_after:.2f}s')
+
+    elif isinstance(error, commands.MissingPermissions):
+        await ctx.send('You do not have the permissions to use this command.')
+    # If any other error occurs, prints to console.
+    else:
+        print(''.join(traceback.format_exception(type(error), error, error.__traceback__)))
+
+
+async def send_cmd_help(ctx):
+    cmd = ctx.command
+    em = discord.Embed(title=f'Usage: {ctx.prefix + cmd.signature}', color=discord.Color.dark_gold())
+    em.description = cmd.help
+    return em
 
 
 # copied for reference

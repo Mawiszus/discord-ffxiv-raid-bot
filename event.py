@@ -7,7 +7,8 @@ from database import get_event, create_connection
 
 
 class Event:
-    def __init__(self, ev_id, name, timestamp, participant_names, participant_ids, jobs, state):
+    def __init__(self, ev_id, name, timestamp, participant_names, participant_ids, is_bench,
+                 jobs, role_numbers, creator_id, state):
         self.id = ev_id
         self.name = name
         self.timestamp = timestamp
@@ -22,11 +23,23 @@ class Event:
         else:
             self.participant_ids = participant_ids
 
+        if isinstance(is_bench, str):
+            self.is_bench = job_string_to_list(is_bench)
+        else:
+            self.is_bench = is_bench
+
         if isinstance(jobs, str):
             self.jobs = job_string_to_list(jobs)
         else:
             self.jobs = jobs
 
+        if isinstance(role_numbers, str):
+            self.role_numbers = job_string_to_list(role_numbers)
+        else:
+            self.role_numbers = role_numbers
+        self.role_numbers = [int(n) for n in self.role_numbers]
+
+        self.creator_id = creator_id
         self.state = state
 
     def get_time(self, user_timezone='GMT'):

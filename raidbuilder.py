@@ -37,6 +37,8 @@ class Character:
         else:
             self.set_jobs(job_list)
 
+        self.benched = False  # set benched according to user preference or by force after deciding on final raid
+
     def set_jobs(self, job_list):
         for job in job_list:
             if job in JOBS and job not in self.jobs:
@@ -82,7 +84,10 @@ def calc_composition_score(combination: tuple[Character], picked_jobs: tuple, n_
         job_prios = []
         for i, member in enumerate(combination):
             idx = member.jobs.index(picked_jobs[i])  # Combination and picked jobs must be in the correct order
-            job_prios.append(len(JOBS) - idx)  # First job in list gets highest priority and so on
+            member_score = len(JOBS) - idx  # First job in list gets highest priority and so on
+            if member.benched:  # member prefers to be on bench so we give him a lower priority
+                member_score -= 8  # need to tweak weight?
+            job_prios.append(member_score)
 
         score = sum(job_prios)
 
@@ -169,6 +174,10 @@ if __name__ == '__main__':
         Character(10, "Blue Chicken", "WHM,SMN"),
         Character(11, "Ragu Bolognese", "DRG,NIN")
     ]
+
+    participants[9].benched = True
+    participants[2].benched = True
+    participants[3].benched = True
 
     # Checking how long this takes
     begin = time.time()
