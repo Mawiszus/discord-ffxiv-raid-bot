@@ -67,7 +67,7 @@ def make_character_from_db(conn, discord_id, name):
         p = get_player(conn, discord_id, name)[0]
 
     if p:
-        return Character(p[1], p[2], p[3])
+        return Character(p[1], p[2], p[3]), p[4], p[5]
     else:
         raise ValueError(f"No Character with id {discord_id} and name {name} found in db.")
 

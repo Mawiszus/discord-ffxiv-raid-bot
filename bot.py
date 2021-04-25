@@ -3,6 +3,7 @@ import datetime
 import os
 import random
 import traceback
+import asyncio
 
 import discord
 from discord.ext import commands
@@ -11,8 +12,9 @@ from pytz import timezone
 from pytz.exceptions import UnknownTimeZoneError
 
 from event import make_event_from_db, Event
-from database import create_connection, create_event
-from raidbuilder import make_character_from_db
+from database import create_connection, create_event, update_event, find_events, col_str, get_player_by_id
+from database import create_player, delete_player
+from raidbuilder import make_character_from_db, Character
 from emoji_dict import emoji_dict
 
 
@@ -65,29 +67,46 @@ async def dm(ctx):
     await ctx.author.send('Hello')
 
 
+def make_event_embed(ev: Event, guild, add_legend=False):
+    try:
+        creator = guild.get_member(ev.creator_id)
+        creator_name = creator.name if creator.nick is None else creator.nick
+    except Exception:
+        creator_name = "INVALID_MEMBER"
+    embed = discord.Embed(title=f"**Event {ev.id}**",
+                          description=f"Organized by **{creator_name}**",
+                          color=discord.Color.dark_gold())
+    embed.add_field(name="**Name**", value=ev.name, inline=False)
+    embed.add_field(name="**Time**", value=ev.get_time(), inline=False)
+
+    signed_str, bench_str = ev.signed_in_and_benched_as_strs()
+    if signed_str:
+        embed.add_field(name="**Participants**", value=signed_str, inline=False)
+    if bench_str:
+        embed.add_field(name="**On the bench**", value=bench_str, inline=False)
+    if ev.jobs:
+        embed.add_field(name="**Jobs**", value=job_emoji_str(ev.jobs), inline=False)
+    else:
+        embed.add_field(name="**Required Roles**", value=role_num_emoji_str(*ev.role_numbers), inline=False)
+
+    if add_legend:
+        embed.add_field(name="Use reactions to", value=f"{emoji_dict['sign_in']} - sign up"
+                                                       f"\n{emoji_dict['bench']} - substitute bench"
+                                                       f"\n{emoji_dict['sign_out']} - sign out", inline=False)
+
+    embed.set_footer(text=f"This event is {ev.state}")
+    return embed
+
+
 @bot.command(name='display-event', help='displays an event from the database given its id')
 async def display_event(ctx, event_id):
     conn = create_connection(r"database/test_2.db")
     if conn is not None:
         try:
             event = make_event_from_db(conn, event_id)
-            try:
-                creator = ctx.guild.get_member(event.creator_id)
-                creator_name = creator.name if creator.nick is None else creator.nick
-            except Exception:
-                creator_name = "INVALID_MEMBER"
-            embed = discord.Embed(title=f"**Event {event_id}**",
-                                  description=f"Organized by **{creator_name}**",
-                                  color=discord.Color.dark_gold())
-            embed.add_field(name="**Name**", value=event.name, inline=False)
-            if event.participant_names:
-                embed.add_field(name="**Participants**", value=event.participants_as_str(), inline=False)
-            if event.jobs:
-                embed.add_field(name="**Jobs**", value=job_emoji_str(event.jobs), inline=False)
-            else:
-                embed.add_field(name="**Required Roles**", value=role_num_emoji_str(*event.role_numbers), inline=False)
-            embed.add_field(name="**Time**", value=event.get_time(), inline=False)
-            embed.set_footer(text=f"This event is {event.state}")
+            embed = make_event_embed(event, ctx.guild)
+            if event.message_link:
+                embed.add_field(name="**Link to original post**", value=event.message_link, inline=False)
             await ctx.send(embed=embed)
         except Exception:
             await ctx.send(f'Could not find event with id {event_id}. This event might not exist (yet).')
@@ -98,15 +117,17 @@ async def display_event(ctx, event_id):
 @bot.command(name='show-player', help='Displays characters registered with the given Discord ID')
 async def show_player(ctx, discord_id):
     num_id = int(discord_id[3:-1])
-    conn = create_connection(r"database/test.db")
+    conn = create_connection(r"database/test_2.db")
     if conn is not None:
         try:  # TODO: handle multiple characters registered with the same discord id
-            chara = make_character_from_db(conn, num_id, None)
+            chara, date, num_raids = make_character_from_db(conn, num_id, None)
             embed = discord.Embed(title=chara.character_name, description=job_emoji_str(chara.jobs),
                                   color=discord.Color.dark_gold())
+            embed.add_field(name="**Nr. of Events:**", value=str(num_raids), inline=False)
+            embed.set_footer(text=f"Registered since {date}")
             await ctx.send(f"<@{num_id}>'s character:", embed=embed)
         except Exception:
-            await ctx.send(f'Could not find player with id {num_id}. This player might not be registered (yet).')
+            await ctx.send(f'Could not find character with id <@{num_id}>. This player might not be registered (yet).')
     else:
         await ctx.send('Could not connect to database :(')
 
@@ -133,33 +154,190 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
             return
 
         event_tup = (name, int(dt_obj.timestamp()), None, None, None,
-                     None, f"{num_tanks},{num_heals},{num_dps}", int(ctx.message.author.mention[2:-1]), "RECRUITING")
+                     None, f"{num_tanks},{num_heals},{num_dps}",
+                     int(ctx.message.author.mention[2:-1]), None, "RECRUITING")
         ev_id = create_event(conn, event_tup)
 
         try:
             event = make_event_from_db(conn, ev_id)
-            try:
-                creator = ctx.guild.get_member(event.creator_id)
-                creator_name = creator.name if creator.nick is None else creator.nick
-            except Exception:
-                creator_name = "INVALID_MEMBER"
-            embed = discord.Embed(title=f"**Event {ev_id}**",
-                                  description=f"Organized by **{creator_name}**",
-                                  color=discord.Color.dark_gold())
-            embed.add_field(name="**Name**", value=event.name, inline=False)
-            if event.participant_names:
-                embed.add_field(name="**Participants**", value=event.participants_as_str(), inline=False)
-            if event.jobs:
-                embed.add_field(name="**Jobs**", value=job_emoji_str(event.jobs), inline=False)
-            else:
-                embed.add_field(name="**Required Roles**", value=role_num_emoji_str(*event.role_numbers), inline=False)
-            embed.add_field(name="**Time**", value=event.get_time(), inline=False)
-            embed.set_footer(text=f"This event is {event.state}")
-            await ctx.send(embed=embed)
         except Exception:
             await ctx.send(f'Could not find event with id {ev_id}. This event might not exist (yet).')
+            return
+        embed = make_event_embed(event, ctx.guild, True)
+        message = await ctx.send(embed=embed)
+        update_event(conn, "message_link", message.jump_url, ev_id)
+        await message.add_reaction(emoji_dict["sign_in"])
+        await message.add_reaction(emoji_dict["bench"])
+        await message.add_reaction(emoji_dict["sign_out"])
+        return
     else:
         await ctx.send('Could not connect to database. Need connection to create and save events.')
+        return
+
+
+@bot.command(name='register-character', help='Registers a character given parameters: name ("Firstname Lastname"), '
+                                             'job_list (formatted like "JOB,JOB,JOB", given in order of your priority)')
+async def register_character(ctx, name, job_list):
+    conn = create_connection(r"database/test_2.db")
+    if conn is not None:
+        disc_id = ctx.message.author.id
+        db_chara = get_player_by_id(conn, disc_id)
+        if db_chara:
+            chara, date, num_raids = make_character_from_db(conn, disc_id, None)
+            embed = discord.Embed(title=chara.character_name, description=job_emoji_str(chara.jobs),
+                                  color=discord.Color.dark_gold())
+            embed.add_field(name="**Nr. of Events:**", value=str(num_raids), inline=False)
+            embed.set_footer(text=f"Registered since {date}")
+            await ctx.send(f"There is already a character registered by <@{disc_id}>, "
+                           f"multiple characters are not supported (yet).", embed=embed)
+            return
+        try:
+            chara = Character(disc_id, name, job_list)
+            player = (chara.discord_id, name, job_list, datetime.datetime.today().strftime('%Y-%m-%d'), 0)
+            create_player(conn, player)
+            embed = discord.Embed(title=chara.character_name, description=job_emoji_str(chara.jobs),
+                                  color=discord.Color.dark_gold())
+            embed.add_field(name="**Nr. of Events:**", value=str(player[4]), inline=False)
+            embed.set_footer(text=f"Registered since {player[3]}")
+            await ctx.send(f"<@{chara.discord_id}>'s character:", embed=embed)
+        except Exception:
+            await ctx.send('Could not parse name and/or job list. '
+                           'Format like this: "Firstname Lastname", "JOB,JOB,JOB"')
+            return
+
+    else:
+        await ctx.send('Could not connect to database. Need connection to create and save characters.')
+        return
+
+
+@bot.command(name='delete-character', help='Deletes the character registered with your discord id.')
+async def delete_character(ctx):
+    conn = create_connection(r"database/test_2.db")
+    if conn is not None:
+        disc_id = ctx.message.author.id
+        db_chara = get_player_by_id(conn, disc_id)
+        if db_chara:
+            chara, _, _ = make_character_from_db(conn, disc_id, None)
+            delete_player(conn, disc_id, chara.character_name)
+            await ctx.send(f'Character **{chara.character_name}** by <@{disc_id}> is now deleted.')
+            return
+        else:
+            await ctx.send(f'There is no character registered by <@{disc_id}> to delete.')
+            return
+    else:
+        await ctx.send('Could not connect to database. Need connection to delete characters.')
+        return
+
+
+@bot.event
+async def on_raw_reaction_add(reaction):
+    emoji = reaction.emoji
+    user = reaction.member
+    if user.bot:
+        return
+    if emoji.name in [emoji_dict['sign_in'].split(":")[1],
+                      emoji_dict['bench'].split(":")[1],
+                      emoji_dict['sign_out'].split(":")[1]]:
+        message = await bot.get_guild(reaction.guild_id).get_channel(reaction.channel_id).fetch_message(reaction.message_id)
+        # Find corresponding event
+        conn = create_connection(r"database/test_2.db")
+        if conn is not None:
+            db_ev = find_events(conn, "message_link", message.jump_url)
+            if not db_ev:
+                # Reaction was not on an event post
+                return
+            event = Event(*db_ev[0])
+            if event.state != "RECRUITING":
+                await user.send(f'You are trying to sign in/out for Event {event.id}, '
+                                f'but the recruitment has ended.')
+                await message.remove_reaction(emoji, user)
+                return
+
+            if user.id in event.participant_ids:
+                idx = event.participant_ids.index(user.id)
+                if emoji.name == emoji_dict['sign_out'].split(":")[1]:
+                    del event.participant_ids[idx]
+                    del event.is_bench[idx]
+                    del event.participant_names[idx]
+                    update_event(conn,  "participant_names", col_str(event.participant_names), event.id)
+                    update_event(conn,  "participant_ids", col_str(event.participant_ids), event.id)
+                    update_event(conn,  "is_bench", col_str(event.is_bench), event.id)
+                    embed = make_event_embed(event, message.guild, True)
+                    await message.edit(embed=embed)
+                    await user.send(f'You are now signed out of {event.id}!')
+                    await message.remove_reaction(emoji, user)
+                    return
+                elif emoji.name == emoji_dict['bench'].split(":")[1]:
+                    if event.is_bench[idx] == 0:
+                        # person is not benched and wants to be benched
+                        # if it is already 1, person is already benched, nothing happens
+                        event.is_bench[idx] = 1
+                        update_event(conn, "is_bench", col_str(event.is_bench), event.id)
+                        embed = make_event_embed(event, message.guild, True)
+                        await message.edit(embed=embed)
+                        await message.remove_reaction(emoji, user)
+                        return
+                elif emoji.name == emoji_dict['sign_in'].split(":")[1]:
+                    if event.is_bench[idx] == 1:
+                        # person is benched and wants to be signed up normally
+                        # if it is already 0, person is already signed up, nothing happens
+                        event.is_bench[idx] = 0
+                        update_event(conn, "is_bench", col_str(event.is_bench), event.id)
+                        embed = make_event_embed(event, message.guild, True)
+                        await message.edit(embed=embed)
+                        await message.remove_reaction(emoji, user)
+                        return
+            else:
+                # user not in list yet
+                if not emoji.name == emoji_dict['sign_out'].split(":")[1]:  # if they aren't signed in, "sign_out" will not do anything
+                    db_player = get_player_by_id(conn, user.id)
+                    if not db_player:
+                        # user also not in db
+                        await user.send(f'You are trying to sign in to Event {event.id}, '
+                                        f'but you are not registered yet! '
+                                        f'Please register with $register-character on your server')
+                        await message.remove_reaction(emoji, user)
+                        return
+                    chara, _, _ = make_character_from_db(conn, user.id, None)
+                    if emoji.name == emoji_dict['sign_in'].split(":")[1]:
+                        bench = 0
+                    else:
+                        bench = 1
+                    event.participant_names.append(chara.character_name)
+                    event.participant_ids.append(chara.discord_id)
+                    event.is_bench.append(bench)
+                    update_event(conn, "participant_names", col_str(event.participant_names), event.id)
+                    update_event(conn, "participant_ids", col_str(event.participant_ids), event.id)
+                    update_event(conn, "is_bench", col_str(event.is_bench), event.id)
+                    embed = make_event_embed(event, message.guild, True)
+                    await message.edit(embed=embed)
+                    await user.send(f'You are now signed in for {event.id}!')
+                    await message.remove_reaction(emoji, user)
+                    return
+
+            await user.send(f'You are trying to sign in to Event {event.id}!')
+            await message.remove_reaction(emoji, user)
+            return
+        else:
+            await user.send('Could not connect to database to process you signing in. '
+                            'Please contact an admin for this bot.')
+            return
+    else:
+        return
+
+
+# @bot.event
+# async def on_raw_reaction_remove(reaction):
+#     emoji = reaction.emoji
+#     user = reaction.member
+#     if user.bot:
+#         return
+#     if emoji.name == emoji_dict['sign_in'].split(":")[1]:
+#         print("Someone signed out")
+#     elif emoji.name == emoji_dict['bench'].split(":")[1]:
+#         print("Someone stood up from the bench")
+#     else:
+#         return
 
 
 @bot.event
@@ -186,7 +364,7 @@ async def on_command_error(ctx, error):
 
 async def send_cmd_help(ctx):
     cmd = ctx.command
-    em = discord.Embed(title=f'Usage: {ctx.prefix + cmd.signature}', color=discord.Color.dark_gold())
+    em = discord.Embed(title=f'Usage: {ctx.prefix}{cmd.name} {cmd.signature}', color=discord.Color.dark_gold())
     em.description = cmd.help
     return em
 

@@ -7,14 +7,14 @@ from tqdm import tqdm
 PLAYER_COLUMNS = ["discord_id", "character_name", "jobs", "signup_date", "num_raids"]
 PLAYER_COLUMNS_TYPES = ["integer NOT NULL", "text NOT NULL", "text", "text", "integer"]
 
-EVENT_COLUMNS = ["name", "timestamp", "participant_names", "participant_ids", "is_bench", "jobs", "role_numbers", "creator_id", "state"]
-EVENT_COLUMNS_TYPES = ["text NOT NULL", "integer NOT NULL", "text", "text", "text", "text",  "text", "integer NOT NULL", "text NOT NULL"]
+EVENT_COLUMNS = ["name", "timestamp", "participant_names", "participant_ids", "is_bench", "jobs", "role_numbers", "creator_id", "message_link", "state"]
+EVENT_COLUMNS_TYPES = ["text NOT NULL", "integer NOT NULL", "text", "text", "text", "text",  "text", "integer NOT NULL", "text", "text NOT NULL"]
 
 
 def col_str(col_list):
     col_string = ""
     for c in col_list:
-        col_string += c + ","
+        col_string += str(c) + ","
     return col_string[:-1]
 
 
@@ -276,7 +276,7 @@ if __name__ == '__main__':
         # create a new Event
         for i in tqdm(range(100)):
             event = ("Expert Roulette", int(time.time()), "A,B,C,D", "1,2,3,4", "0,0,0,0",
-                     "PLD,SCH,MNK,RDM", "1,1,2", 205335642287112192, "COMPLETED")
+                     "PLD,SCH,MNK,RDM", "1,1,2", 205335642287112192, None,  "COMPLETED")
             create_event(conn, event)
 
         # update event

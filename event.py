@@ -8,38 +8,53 @@ from database import get_event, create_connection
 
 class Event:
     def __init__(self, ev_id, name, timestamp, participant_names, participant_ids, is_bench,
-                 jobs, role_numbers, creator_id, state):
+                 jobs, role_numbers, creator_id, message_link, state):
         self.id = ev_id
         self.name = name
         self.timestamp = timestamp
 
-        if isinstance(participant_names, str):
+        if isinstance(participant_names, str) and participant_names != '':
             self.participant_names = job_string_to_list(participant_names)
+        elif participant_names is None or participant_names == '':
+            self.participant_names = []
         else:
             self.participant_names = participant_names
 
-        if isinstance(participant_ids, str):
+        if isinstance(participant_ids, str) and participant_ids != '':
             self.participant_ids = job_string_to_list(participant_ids)
+        elif participant_ids is None or participant_ids == '':
+            self.participant_ids = []
         else:
             self.participant_ids = participant_ids
+        if self.participant_ids:
+            self.participant_ids = [int(n) for n in self.participant_ids]
 
-        if isinstance(is_bench, str):
+        if isinstance(is_bench, str) and is_bench != '':
             self.is_bench = job_string_to_list(is_bench)
+        elif is_bench is None or is_bench == '':
+            self.is_bench = []
         else:
             self.is_bench = is_bench
+        if self.is_bench:
+            self.is_bench = [int(n) for n in self.is_bench]  # 0 for normal, 1 for bench
 
-        if isinstance(jobs, str):
+        if isinstance(jobs, str) and jobs != '':
             self.jobs = job_string_to_list(jobs)
+        elif jobs is None or jobs == '':
+            self.jobs = []
         else:
             self.jobs = jobs
 
         if isinstance(role_numbers, str):
             self.role_numbers = job_string_to_list(role_numbers)
+        elif role_numbers is None:  # should not be possible
+            self.role_numbers = []
         else:
             self.role_numbers = role_numbers
         self.role_numbers = [int(n) for n in self.role_numbers]
 
         self.creator_id = creator_id
+        self.message_link = message_link
         self.state = state
 
     def get_time(self, user_timezone='GMT'):
@@ -55,6 +70,16 @@ class Event:
 
     def participants_as_str(self):
         return string_from_list(self.participant_names)
+
+    def signed_in_and_benched_as_strs(self):
+        signed = ""
+        benched = ""
+        for i in range(len(self.participant_names)):
+            if self.is_bench[i]:
+                benched += self.participant_names[i] + ", "
+            else:
+                signed += self.participant_names[i] + ", "
+        return signed[:-2], benched[:-2]
 
     def jobs_as_str(self):
         return string_from_list(self.jobs)
