@@ -4,8 +4,8 @@ from datetime import datetime
 import time
 from tqdm import tqdm
 
-PLAYER_COLUMNS = ["discord_id", "character_name", "jobs", "signup_date", "num_raids"]
-PLAYER_COLUMNS_TYPES = ["integer NOT NULL", "text NOT NULL", "text", "text", "integer"]
+PLAYER_COLUMNS = ["discord_id", "character_name", "jobs", "signup_date", "num_raids", "involuntary_benches"]
+PLAYER_COLUMNS_TYPES = ["integer NOT NULL", "text NOT NULL", "text", "text", "integer", "integer"]
 
 EVENT_COLUMNS = ["name", "timestamp", "participant_names", "participant_ids", "is_bench", "jobs", "role_numbers", "creator_id", "message_link", "state"]
 EVENT_COLUMNS_TYPES = ["text NOT NULL", "integer NOT NULL", "text", "text", "text", "text",  "text", "integer NOT NULL", "text", "text NOT NULL"]
@@ -251,7 +251,7 @@ if __name__ == '__main__':
         # -----------------------------------------------
         # create a new Player
         for i in tqdm(range(100)):
-            player = (1234567890 + i, "Nama Zu", "PLD,DNC,SAM,MCH", datetime.today().strftime('%Y-%m-%d'), 0)
+            player = (1234567890 + i, "Nama Zu", "PLD,DNC,SAM,MCH", datetime.today().strftime('%Y-%m-%d'), 0, 0)
             create_player(conn, player)
 
         # update player

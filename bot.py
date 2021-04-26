@@ -13,7 +13,7 @@ from pytz.exceptions import UnknownTimeZoneError
 
 from event import make_event_from_db, Event
 from database import create_connection, create_event, update_event, find_events, col_str, get_player_by_id
-from database import create_player, delete_player
+from database import create_player, delete_player, update_player
 from raidbuilder import make_character_from_db, Character
 from emoji_dict import emoji_dict
 
@@ -98,6 +98,16 @@ def make_event_embed(ev: Event, guild, add_legend=False):
     return embed
 
 
+def make_character_embed(ch: Character, date, num_raids):
+    embed = discord.Embed(title=ch.character_name, description=job_emoji_str(ch.jobs),
+                          color=discord.Color.dark_gold())
+    embed.add_field(name="**Nr. of Events:**", value=str(num_raids), inline=False)
+    embed.add_field(name="**Involuntarily benched counter:**", value=str(ch.involuntary_benches),
+                    inline=False)
+    embed.set_footer(text=f"Registered since {date}")
+    return embed
+
+
 @bot.command(name='display-event', help='displays an event from the database given its id')
 async def display_event(ctx, event_id):
     conn = create_connection(r"database/test_2.db")
@@ -121,10 +131,7 @@ async def show_player(ctx, discord_id):
     if conn is not None:
         try:  # TODO: handle multiple characters registered with the same discord id
             chara, date, num_raids = make_character_from_db(conn, num_id, None)
-            embed = discord.Embed(title=chara.character_name, description=job_emoji_str(chara.jobs),
-                                  color=discord.Color.dark_gold())
-            embed.add_field(name="**Nr. of Events:**", value=str(num_raids), inline=False)
-            embed.set_footer(text=f"Registered since {date}")
+            embed = make_character_embed(chara, date, num_raids)
             await ctx.send(f"<@{num_id}>'s character:", embed=embed)
         except Exception:
             await ctx.send(f'Could not find character with id <@{num_id}>. This player might not be registered (yet).')
@@ -184,21 +191,15 @@ async def register_character(ctx, name, job_list):
         db_chara = get_player_by_id(conn, disc_id)
         if db_chara:
             chara, date, num_raids = make_character_from_db(conn, disc_id, None)
-            embed = discord.Embed(title=chara.character_name, description=job_emoji_str(chara.jobs),
-                                  color=discord.Color.dark_gold())
-            embed.add_field(name="**Nr. of Events:**", value=str(num_raids), inline=False)
-            embed.set_footer(text=f"Registered since {date}")
+            embed = make_character_embed(chara, date, num_raids)
             await ctx.send(f"There is already a character registered by <@{disc_id}>, "
                            f"multiple characters are not supported (yet).", embed=embed)
             return
         try:
-            chara = Character(disc_id, name, job_list)
-            player = (chara.discord_id, name, job_list, datetime.datetime.today().strftime('%Y-%m-%d'), 0)
+            chara = Character(disc_id, name, job_list, 0)
+            player = (chara.discord_id, name, job_list, datetime.datetime.today().strftime('%Y-%m-%d'), 0, 0)
             create_player(conn, player)
-            embed = discord.Embed(title=chara.character_name, description=job_emoji_str(chara.jobs),
-                                  color=discord.Color.dark_gold())
-            embed.add_field(name="**Nr. of Events:**", value=str(player[4]), inline=False)
-            embed.set_footer(text=f"Registered since {player[3]}")
+            embed = make_character_embed(chara, player[3], player[4])
             await ctx.send(f"<@{chara.discord_id}>'s character:", embed=embed)
         except Exception:
             await ctx.send('Could not parse name and/or job list. '
@@ -226,6 +227,65 @@ async def delete_character(ctx):
             return
     else:
         await ctx.send('Could not connect to database. Need connection to delete characters.')
+        return
+
+
+@bot.command(name='add-job', help="adds given job at given position in your character's job list. "
+                                  "Pos 0 is in front of 1st job, pos 1 in front of 2nd job etc.")
+async def add_job(ctx, job, pos):
+    conn = create_connection(r"database/test_2.db")
+    if conn is not None:
+        disc_id = ctx.message.author.id
+        db_chara = get_player_by_id(conn, disc_id)
+        if db_chara:
+            chara, date, num_raids = make_character_from_db(conn, disc_id, None)
+            job_list = chara.jobs
+            try:
+                job_list.insert(int(pos), job.upper())
+            except Exception:
+                await ctx.send(f'Could not parse position. '
+                               f'Position needs to be a valid insertion number for your job list.')
+                return
+            try:
+                chara.set_jobs(job_list)
+            except SyntaxError as e:
+                await ctx.send(f'Could not add job. {e.msg}.')
+                return
+            update_player(conn, "jobs", col_str(chara.jobs), disc_id, chara.character_name)
+            embed = make_character_embed(chara, date, num_raids)
+            await ctx.send(f"<@{chara.discord_id}>'s character:", embed=embed)
+            return
+        else:
+            await ctx.send(f'There is no character registered by <@{disc_id}> to add jobs to.')
+            return
+    else:
+        await ctx.send('Could not connect to database. Need connection to edit characters.')
+        return
+
+
+@bot.command(name='remove-job', help="removes the given job from your character's job list.")
+async def remove_job(ctx, job):
+    conn = create_connection(r"database/test_2.db")
+    if conn is not None:
+        disc_id = ctx.message.author.id
+        db_chara = get_player_by_id(conn, disc_id)
+        if db_chara:
+            chara, date, num_raids = make_character_from_db(conn, disc_id, None)
+            try:
+                chara.jobs.remove(job.upper())
+            except ValueError:
+                await ctx.send(f'Job {job.upper()} is not in your job list.')
+                return
+
+            update_player(conn, "jobs", col_str(chara.jobs), disc_id, chara.character_name)
+            embed = make_character_embed(chara, date, num_raids)
+            await ctx.send(f"<@{chara.discord_id}>'s character:", embed=embed)
+            return
+        else:
+            await ctx.send(f'There is no character registered by <@{disc_id}> to remove jobs from.')
+            return
+    else:
+        await ctx.send('Could not connect to database. Need connection to edit characters.')
         return
 
 
@@ -315,10 +375,11 @@ async def on_raw_reaction_add(reaction):
                     await message.remove_reaction(emoji, user)
                     return
 
-            await user.send(f'You are trying to sign in to Event {event.id}!')
+            # await user.send(f'You are trying to sign in to Event {event.id}!')
             await message.remove_reaction(emoji, user)
             return
         else:
+            await message.remove_reaction(emoji, user)
             await user.send('Could not connect to database to process you signing in. '
                             'Please contact an admin for this bot.')
             return

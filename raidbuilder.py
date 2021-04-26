@@ -28,7 +28,7 @@ def job_string_to_list(job_string: str):
 class Character:
     """A Class defining a character.
     Note: Job_list should be given in Order of priority."""
-    def __init__(self, discord_id, name, job_list):
+    def __init__(self, discord_id, name, job_list, involuntary_benches):
         self.discord_id = discord_id
         self.character_name = name
         self.jobs = []
@@ -38,15 +38,17 @@ class Character:
             self.set_jobs(job_list)
 
         self.benched = False  # set benched according to user preference or by force after deciding on final raid
+        self.involuntary_benches = involuntary_benches
 
     def set_jobs(self, job_list):
+        self.jobs = []
         for job in job_list:
             if job in JOBS and job not in self.jobs:
                 self.jobs.append(job)
             elif job in self.jobs:
-                print(f"{job} already registered")
+                raise SyntaxError(f"{job} already registered")
             else:
-                print(f"{job} is not a valid job")
+                raise SyntaxError(f"{job} is not a valid job")
 
     def get_overview_string(self):
         jobs_string = string_from_list(self.jobs)
@@ -67,7 +69,7 @@ def make_character_from_db(conn, discord_id, name):
         p = get_player(conn, discord_id, name)[0]
 
     if p:
-        return Character(p[1], p[2], p[3]), p[4], p[5]
+        return Character(p[1], p[2], p[3], p[6]), p[4], p[5]
     else:
         raise ValueError(f"No Character with id {discord_id} and name {name} found in db.")
 
@@ -87,6 +89,8 @@ def calc_composition_score(combination: tuple[Character], picked_jobs: tuple, n_
             member_score = len(JOBS) - idx  # First job in list gets highest priority and so on
             if member.benched:  # member prefers to be on bench so we give him a lower priority
                 member_score -= 8  # need to tweak weight?
+            else:
+                member_score += member.involuntary_benches  # add times benched to score
             job_prios.append(member_score)
 
         score = sum(job_prios)
@@ -162,17 +166,17 @@ def make_raid(characters: list[Character], n_tanks: int, n_healers: int, n_dps: 
 if __name__ == '__main__':
     # Test raidbuilder functionality
     participants = [
-        Character(1, "Nama Zu",     "GNB,PLD,MCH"),
-        Character(2, "Na Mazu",     "DRK,GNB,MNK"),
-        Character(3, "Zu Nama",     "WHM,AST,PLD,BRD"),
-        Character(4, "Zuna Ma",     "BLM,SMN,RDM,SCH"),
-        Character(5, "Mama Zu",     "BRD,WHM,RDM"),
-        Character(6, "Uza Man",     "MNK,SAM,GNB"),
-        Character(7, "Zuzu Nana",   "DNC"),
-        Character(8, "Yes Yes",     "PLD,WAR,MCH,DNC"),
-        Character(9, "Dummy Thicc", "BLM,SAM"),
-        Character(10, "Blue Chicken", "WHM,SMN"),
-        Character(11, "Ragu Bolognese", "DRG,NIN")
+        Character(1, "Nama Zu",     "GNB,PLD,MCH", 1),
+        Character(2, "Na Mazu",     "DRK,GNB,MNK", 0),
+        Character(3, "Zu Nama",     "WHM,AST,PLD,BRD", 0),
+        Character(4, "Zuna Ma",     "BLM,SMN,RDM,SCH", 0),
+        Character(5, "Mama Zu",     "BRD,WHM,RDM", 0),
+        Character(6, "Uza Man",     "MNK,SAM,GNB", 0),
+        Character(7, "Zuzu Nana",   "DNC", 0),
+        Character(8, "Yes Yes",     "PLD,WAR,MCH,DNC", 0),
+        Character(9, "Dummy Thicc", "BLM,SAM", 0),
+        Character(10, "Blue Chicken", "WHM,SMN", 0),
+        Character(11, "Ragu Bolognese", "DRG,NIN", 0)
     ]
 
     participants[9].benched = True
