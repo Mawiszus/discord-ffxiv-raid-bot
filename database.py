@@ -1,5 +1,6 @@
 import sqlite3
 from sqlite3 import Error
+from pathlib import Path
 from datetime import datetime
 import time
 from tqdm import tqdm
@@ -26,12 +27,21 @@ def create_table_sql_command(name, cols, col_types):
     return sql_table
 
 
+def initialize_db_with_tables(conn):
+    sql_create_player_table_str: str = create_table_sql_command("players", PLAYER_COLUMNS, PLAYER_COLUMNS_TYPES)
+    sql_create_events_table_str: str = create_table_sql_command("events", EVENT_COLUMNS, EVENT_COLUMNS_TYPES)
+
+    create_table(conn, sql_create_player_table_str)
+    create_table(conn, sql_create_events_table_str)
+
+
 def create_connection(db_file: str):
     """ create a database connection to a SQLite database """
     conn = None
     try:
-        conn = sqlite3.connect(db_file)
-        # print(sqlite3.version)
+        Path("./database/").mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect("./database/" + str(db_file) + r".db")
+
     except Error as e:
         print(e)
     # finally:
