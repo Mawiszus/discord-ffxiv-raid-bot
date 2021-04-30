@@ -528,7 +528,7 @@ async def register_character(ctx, name, job_list):
             return
         try:
             chara = Character(disc_id, name, job_list, 0)
-            player = (chara.discord_id, name, job_list, datetime.datetime.today().strftime('%Y-%m-%d'), 0, 0)
+            player = (chara.discord_id, name, job_list, datetime.today().strftime('%Y-%m-%d'), 0, 0)
             create_player(conn, player)
             embed = make_character_embed(chara, player[3], player[4])
             await ctx.send(f"<@{chara.discord_id}>'s character:", embed=embed)
