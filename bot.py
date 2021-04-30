@@ -211,6 +211,11 @@ async def edit_event(ctx, ev_id, field, value):
                 return
             if field == "name":
                 update_event(conn, "name", value, event.id)
+                link = event.message_link.split('/')
+                message = await bot.get_guild(int(link[-3])).get_channel(int(link[-2])).fetch_message(
+                    int(link[-1]))
+                embed = make_event_embed(event, message.guild, True if event.state == "RECRUITING" else False)
+                await message.edit(embed=embed)
                 await ctx.send("Event name updated.")
                 await show_event(ctx, event.id)
                 return
@@ -224,6 +229,11 @@ async def edit_event(ctx, ev_id, field, value):
                                    f"dd-mm-yyyy")
                     return
                 update_event(conn, "timestamp", int(dt_object.timestamp()), event.id)
+                link = event.message_link.split('/')
+                message = await bot.get_guild(int(link[-3])).get_channel(int(link[-2])).fetch_message(
+                    int(link[-1]))
+                embed = make_event_embed(event, message.guild, True if event.state == "RECRUITING" else False)
+                await message.edit(embed=embed)
                 await ctx.send("Event date updated.")
                 await show_event(ctx, event.id)
                 return
@@ -238,6 +248,11 @@ async def edit_event(ctx, ev_id, field, value):
                                    f"hh:mm (in 24 hour format)")
                     return
                 update_event(conn, "timestamp", int(dt_object.timestamp()), event.id)
+                link = event.message_link.split('/')
+                message = await bot.get_guild(int(link[-3])).get_channel(int(link[-2])).fetch_message(
+                    int(link[-1]))
+                embed = make_event_embed(event, message.guild, True if event.state == "RECRUITING" else False)
+                await message.edit(embed=embed)
                 await ctx.send("Event time updated.")
                 await show_event(ctx, event.id)
                 return
