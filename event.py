@@ -57,12 +57,12 @@ class Event:
         self.message_link = message_link
         self.state = state
 
-    def get_time(self, user_timezone='GMT'):
+    def get_time(self, user_timezone='UTC'):
         """Get timestamp in user_timezone, user_timezone uses formats known to pytz"""
         try:
             tz = timezone(user_timezone)
         except UnknownTimeZoneError:
-            print(f"Unknown timezone {user_timezone}, use format like 'Europe/Amsterdam', displaying in GMT")
+            print(f"Unknown timezone {user_timezone}, use format like 'Europe/Amsterdam', displaying in UTC")
             tz = timezone('GMT')
 
         dt_object = datetime.fromtimestamp(self.timestamp, tz)

@@ -169,7 +169,8 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
         try:
             d, m, y = date.split("-")
             hour, minute = start_time.split(":")
-            dt_obj = datetime.datetime(int(y), int(m), int(d), int(hour), int(minute), tzinfo=tz)
+            dt_obj = datetime.datetime(int(y), int(m), int(d), int(hour), int(minute))
+            dt_obj = tz.normalize(tz.localize(dt_obj))
         except Exception:
             await ctx.send(f"Could not parse date and/or time, make sure to format like this: "
                            f"dd-mm-yyyy hh:mm (in 24 hour format)")
