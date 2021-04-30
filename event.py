@@ -66,7 +66,7 @@ class Event:
             tz = timezone('GMT')
 
         dt_object = datetime.fromtimestamp(self.timestamp, tz)
-        return dt_object.strftime("%d %B %Y %H:%M:%S %Z%z")
+        return dt_object.strftime("%d %B %Y %H:%M:%S %Z")
 
     def participants_as_str(self):
         return string_from_list(self.participant_names)

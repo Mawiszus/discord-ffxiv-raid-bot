@@ -16,7 +16,8 @@ JOBS = [*TANKS, *HEALERS, *DPS]
 def string_from_list(lt):
     ret_string = ""
     for n in lt:
-        ret_string += n + ", "
+        if n is not None:
+            ret_string += n + ", "
     ret_string = ret_string[:-2]
     return ret_string
 
@@ -157,10 +158,10 @@ def make_raid(characters: list[Character], n_tanks: int, n_healers: int, n_dps: 
     all_bests = [raid for raid in groups_comps_and_scores if raid[2] == best_score]
 
     # Statistics, out of curiosity, comment out later:
-    print(f"There are {len(groups_comps_and_scores)} viable combinations.")
-    print(f"Best score of {best_score} appears {len(all_bests)} times.")
+    # stat_str = f"There are {len(groups_comps_and_scores)} viable combinations.\n" \
+    #            f"Best score of {best_score} appears {len(all_bests)} times."
 
-    return all_bests
+    return all_bests  # , stat_str
 
 
 if __name__ == '__main__':

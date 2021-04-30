@@ -13,20 +13,35 @@ from pytz.exceptions import UnknownTimeZoneError
 
 from event import make_event_from_db, Event
 from database import create_connection, create_event, update_event, find_events, col_str, get_player_by_id
-from database import create_player, delete_player, update_player
-from raidbuilder import make_character_from_db, Character
+from database import create_player, delete_player, update_player, get_event
+from raidbuilder import make_character_from_db, Character, make_raid, JOBS
 from emoji_dict import emoji_dict
 
 
 def job_emoji_str(job_list):
     emoji_str = ""
     for job in job_list:
-        emoji_str += emoji_dict[job] + " "
+        if job is not None:
+            emoji_str += emoji_dict[job] + " "
     return emoji_str
 
 
 def role_num_emoji_str(n_tanks, n_healers, n_dps):
     return f"{n_tanks} {emoji_dict['Tank']} {n_healers} {emoji_dict['Healer']} {n_dps} {emoji_dict['DPS']}"
+
+
+def ping_string(list_of_ids):
+    ping_str = "Hey, "
+    for i in list_of_ids:
+        ping_str += f"<@{i}>, "
+    return ping_str[:-2]
+
+
+def build_countdown_link(timestamp):
+    dt_obj = datetime.datetime.fromtimestamp(timestamp, tz=timezone("GMT"))
+    link = f"https://www.timeanddate.com/countdown/generic?iso={dt_obj.year}{dt_obj.month:02}{dt_obj.day:02}" \
+           f"T{dt_obj.hour:02}{dt_obj.minute:02}{dt_obj.second:02}&p0=0&font=cursive"
+    return link
 
 
 load_dotenv()
@@ -77,7 +92,7 @@ def make_event_embed(ev: Event, guild, add_legend=False):
                           description=f"Organized by **{creator_name}**",
                           color=discord.Color.dark_gold())
     embed.add_field(name="**Name**", value=ev.name, inline=False)
-    embed.add_field(name="**Time**", value=ev.get_time(), inline=False)
+    embed.add_field(name="**Time**", value=f"[{ev.get_time()}]({build_countdown_link(ev.timestamp)})", inline=False)
 
     signed_str, bench_str = ev.signed_in_and_benched_as_strs()
     if signed_str:
@@ -108,23 +123,23 @@ def make_character_embed(ch: Character, date, num_raids):
     return embed
 
 
-@bot.command(name='display-event', help='displays an event from the database given its id')
-async def display_event(ctx, event_id):
+@bot.command(name='show-event', help='Shows an event from the database given its id')
+async def show_event(ctx, event_id):
     conn = create_connection(r"database/test_2.db")
     if conn is not None:
         try:
             event = make_event_from_db(conn, event_id)
             embed = make_event_embed(event, ctx.guild)
             if event.message_link:
-                embed.add_field(name="**Link to original post**", value=event.message_link, inline=False)
+                embed.add_field(name="**Original post**", value=f"[link]({event.message_link})", inline=False)
             await ctx.send(embed=embed)
         except Exception:
             await ctx.send(f'Could not find event with id {event_id}. This event might not exist (yet).')
     else:
-        await ctx.send('Could not connect to database :(')
+        await ctx.send('Could not connect to database.')
 
 
-@bot.command(name='show-player', help='Displays characters registered with the given Discord ID')
+@bot.command(name='show-player', help='Shows characters registered with the given Discord ID')
 async def show_player(ctx, discord_id):
     num_id = int(discord_id[3:-1])
     conn = create_connection(r"database/test_2.db")
@@ -136,7 +151,7 @@ async def show_player(ctx, discord_id):
         except Exception:
             await ctx.send(f'Could not find character with id <@{num_id}>. This player might not be registered (yet).')
     else:
-        await ctx.send('Could not connect to database :(')
+        await ctx.send('Could not connect to database.')
 
 
 @bot.command(name='make-event', help='creates an event given parameters: '
@@ -179,6 +194,316 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
         return
     else:
         await ctx.send('Could not connect to database. Need connection to create and save events.')
+        return
+
+
+@bot.command(name='edit-event', help='Edits the given field of an event given its id. Only the event creator can edit. '
+                                     'Field can be either name, date, time. Time will always be assumed GMT.')
+async def edit_event(ctx, ev_id, field, value):
+    conn = create_connection(r"database/test_2.db")
+    if conn is not None:
+        db_ev = get_event(conn, ev_id)
+        if db_ev:
+            event = make_event_from_db(conn, ev_id)
+            if event.creator_id != ctx.message.author.id:
+                await ctx.send(f'You are not the author for this event. Only the author can edit events.')
+                return
+            if field == "name":
+                update_event(conn, "name", value, event.id)
+                await ctx.send("Event name updated.")
+                await show_event(ctx, event.id)
+                return
+            elif field == "date":
+                dt_object = datetime.datetime.fromtimestamp(event.timestamp)
+                try:
+                    d, m, y = value.split("-")
+                    dt_object = dt_object.replace(day=int(d), month=int(m), year=int(y), tzinfo=timezone("GMT"))
+                except Exception:
+                    await ctx.send(f"Could not parse date, make sure to format like this: "
+                                   f"dd-mm-yyyy")
+                    return
+                update_event(conn, "timestamp", int(dt_object.timestamp()), event.id)
+                await ctx.send("Event date updated.")
+                await show_event(ctx, event.id)
+                return
+
+            elif field == "time":
+                dt_object = datetime.datetime.fromtimestamp(event.timestamp)
+                try:
+                    hour, minute = value.split(":")
+                    dt_object = dt_object.replace(hour=int(hour), minute=int(minute), tzinfo=timezone("GMT"))
+                except Exception:
+                    await ctx.send(f"Could not parse time, make sure to format like this: "
+                                   f"hh:mm (in 24 hour format)")
+                    return
+                update_event(conn, "timestamp", int(dt_object.timestamp()), event.id)
+                await ctx.send("Event time updated.")
+                await show_event(ctx, event.id)
+                return
+            else:
+                await ctx.send(f'{field} is not an editable field.\n'
+                               f'Editable fields are "name", "date", "time"')
+                return
+        else:
+            await ctx.send(f'There is no event with id {ev_id}.')
+            return
+    else:
+        await ctx.send('Could not connect to database.')
+        return
+
+
+@bot.command(name='close-event', help='closes recruitment for an event. Will ask you to decide on the composition'
+                                      'via DM. Needs the event ID.')
+async def close_event(ctx, ev_id):
+    conn = create_connection(r"database/test_2.db")
+    if conn is not None:
+        db_ev = get_event(conn, ev_id)
+        if db_ev:
+            event = make_event_from_db(conn, ev_id)
+            if event.creator_id != ctx.message.author.id:
+                await ctx.send(f'You are not the author for this event. Only the author can close events.')
+                return
+            if event.state != "RECRUITING":
+                await ctx.send(f'This event has already been closed.')
+                return
+            if len(event.participant_ids) < sum(event.role_numbers):
+                await ctx.message.author.send(f'There are not enough participants registered for this event. '
+                                              f'You can either CANCEL the event, or call on all registered participants '
+                                              f'for an UNDERSIZED event in which you fill up with Party Finder. \n'
+                                              f'`1` - CANCEL event\n'
+                                              f'`2` - UNDERSIZED event\n'
+                                              f'`esc` - stop closing dialogue')
+
+                def check(m):
+                    return ctx.message.author == m.author \
+                           and (m.content == "1" or m.content == "2" or m.content == "esc") \
+                           and not m.guild
+                # await response
+                try:
+                    msg = await bot.wait_for('message', check=check, timeout=3600.0)
+                except asyncio.TimeoutError:
+                    await ctx.message.author.send(f'Stopping $close-event dialogue due to timeout.')
+                    return
+                else:
+                    if msg.content == "1":
+                        await ctx.message.author.send(f'you have decided to CANCEL the event.')
+                        link = event.message_link.split('/')
+                        message = await bot.get_guild(int(link[-3])).get_channel(int(link[-2])).fetch_message(
+                            int(link[-1]))
+                        event.state = "CANCELLED"
+                        update_event(conn, "state", event.state, event.id)
+                        embed = make_event_embed(event, message.guild, False)
+                        await message.edit(embed=embed)
+                        for em in [emoji_dict["sign_in"], emoji_dict["sign_out"], emoji_dict["bench"]]:
+                            await message.remove_reaction(em, bot.user)
+                        new_emb = discord.Embed(title=f"**Event {event.id} - {event.name}**",
+                                                description=f"Has been **CANCELLED**",
+                                                color=discord.Color.dark_gold())
+                        await ctx.send(embed=new_emb)
+                    elif msg.content == "2":
+                        await ctx.message.author.send(f'you have decided to run the event UNDERSIZED.')
+                        link = event.message_link.split('/')
+                        message = await bot.get_guild(int(link[-3])).get_channel(int(link[-2])).fetch_message(
+                            int(link[-1]))
+                        event.state = "UNDERSIZED"
+                        update_event(conn, "state", event.state, event.id)
+                        # all benched will need to participate
+                        for i, _ in enumerate(event.is_bench):
+                            event.is_bench[i] = 0
+                        update_event(conn, "is_bench", col_str(event.is_bench), event.id)
+                        # Jobs need to be figured out on their own, pf can fill anything right?
+                        embed = make_event_embed(event, message.guild, False)
+                        await message.edit(embed=embed)
+                        for em in [emoji_dict["sign_in"], emoji_dict["sign_out"], emoji_dict["bench"]]:
+                            await message.remove_reaction(em, bot.user)
+                        new_emb = discord.Embed(title=f"**Event {event.id} - {event.name}**",
+                                                description=f"will be run **UNDERSIZED**",
+                                                color=discord.Color.dark_gold())
+                        new_emb.add_field(name="**Time**",
+                                          value=f"[{event.get_time()}]({build_countdown_link(event.timestamp)})",
+                                          inline=False)
+                        signed_str, _ = event.signed_in_and_benched_as_strs()
+                        if signed_str:
+                            new_emb.add_field(name="**Participants**", value=signed_str, inline=False)
+                        await ctx.send(embed=new_emb)
+                    elif msg.content == "esc":
+                        await ctx.message.author.send(f'Stopping $close-event dialogue.')
+                return
+            else:
+                # THIS IS WHERE THE MAGIC HAPPENS!
+                # Get Information from event
+                participants = []
+                num_raids = []
+                for i, p_id in enumerate(event.participant_ids):
+                    chara, _, n_raid = make_character_from_db(conn, p_id, event.participant_names[i])
+                    if event.is_bench[i]:
+                        chara.benched = True
+                    participants.append(chara)
+                    num_raids.append(n_raid)
+
+                await ctx.message.author.send(f'Building a group for event {event.id} ...')
+                # Get X best raids
+                best_raids = make_raid(participants, event.role_numbers[0], event.role_numbers[1], event.role_numbers[2])
+                if not best_raids:
+                    # No viable combination was found
+                    await ctx.message.author.send(f"I could not create a viable group given the participants' jobs and "
+                                                  f"the expected roles for this event.")
+                    await ctx.message.author.send(f'You can either CANCEL the event, or call on all registered participants '
+                                                  f'for a MANUAL event in which you build the party yourself with other jobs or pf. \n'
+                                                  f'`1` - CANCEL event\n'
+                                                  f'`2` - MANUAL event\n'
+                                                  f'`esc` - stop closing dialogue')
+
+                    def check(m):
+                        return ctx.message.author == m.author \
+                               and (m.content == "1" or m.content == "2" or m.content == "esc") \
+                               and not m.guild
+
+                    # await response
+                    try:
+                        msg = await bot.wait_for('message', check=check, timeout=3600.0)
+                    except asyncio.TimeoutError:
+                        await ctx.message.author.send(f'Stopping $close-event dialogue due to timeout.')
+                        return
+                    else:
+                        if msg.content == "1":
+                            await ctx.message.author.send(f'you have decided to CANCEL the event.')
+                            link = event.message_link.split('/')
+                            message = await bot.get_guild(int(link[-3])).get_channel(int(link[-2])).fetch_message(
+                                int(link[-1]))
+                            event.state = "CANCELLED"
+                            update_event(conn, "state", event.state, event.id)
+                            embed = make_event_embed(event, message.guild, False)
+                            await message.edit(embed=embed)
+                            for em in [emoji_dict["sign_in"], emoji_dict["sign_out"], emoji_dict["bench"]]:
+                                await message.remove_reaction(em, bot.user)
+                            new_emb = discord.Embed(title=f"**Event {event.id} - {event.name}**",
+                                                    description=f"Has been **CANCELLED**",
+                                                    color=discord.Color.dark_gold())
+                            await ctx.send(embed=new_emb)
+                        elif msg.content == "2":
+                            await ctx.message.author.send(f'you have decided to run the event MANUAL.')
+                            link = event.message_link.split('/')
+                            message = await bot.get_guild(int(link[-3])).get_channel(int(link[-2])).fetch_message(
+                                int(link[-1]))
+                            event.state = "MANUAL"
+                            update_event(conn, "state", event.state, event.id)
+                            # Jobs need to be figured out on their own, pf can fill anything right?
+                            embed = make_event_embed(event, message.guild, False)
+                            await message.edit(embed=embed)
+                            for em in [emoji_dict["sign_in"], emoji_dict["sign_out"], emoji_dict["bench"]]:
+                                await message.remove_reaction(em, bot.user)
+                            new_emb = discord.Embed(title=f"**Event {event.id} - {event.name}**",
+                                                    description=f"will be run **MANUAL**",
+                                                    color=discord.Color.dark_gold())
+                            new_emb.add_field(name="**Time**",
+                                              value=f"[{event.get_time()}]({build_countdown_link(event.timestamp)})",
+                                              inline=False)
+                            signed_str, bench_str = event.signed_in_and_benched_as_strs()
+                            if signed_str:
+                                new_emb.add_field(name="**Participants**", value=signed_str, inline=False)
+                            if bench_str:
+                                new_emb.add_field(name="**On the bench**", value=bench_str, inline=False)
+                            await ctx.send(embed=new_emb)
+                        elif msg.content == "esc":
+                            await ctx.message.author.send(f'Stopping $close-event dialogue.')
+                    return
+
+                # We have at least 1 working combo
+                combo_str = ""
+                for i, (group, comp, score) in enumerate(best_raids):
+                    curr_str = ""
+                    for player in group:
+                        job = comp[group.index(player)]
+                        curr_str += f"{player.character_name} as {emoji_dict[job]}, "
+                    combo_str += f"`{i}` - " + curr_str[:-2] + "\n"
+
+                combo_str += "`rnd` -  choose one of the above at random."
+
+                new_emb = discord.Embed(title=f"Best Combinations:",
+                                        description=combo_str,
+                                        color=discord.Color.dark_gold())
+                await ctx.message.author.send("Please choose a composition out of the following:", embed=new_emb)
+
+                def check(m):
+                    return ctx.message.author == m.author \
+                           and not m.guild \
+                           and (m.content == "rnd" or int(m.content) in range(len(best_raids)))
+                # await response
+                try:
+                    msg = await bot.wait_for('message', check=check, timeout=3600.0)
+                except asyncio.TimeoutError:
+                    await ctx.message.author.send(f'Stopping $close-event dialogue due to timeout.')
+                    return
+                except Exception:
+                    await ctx.message.author.send(f'You sent something I cannot convert to a number. '
+                                                  f'I cannot deal with this so you will have to '
+                                                  f'restart the closing process.')
+                    return
+                else:
+                    if msg.content == "rnd":
+                        raidnum = random.randint(0, len(best_raids)-1)
+                    else:
+                        raidnum = int(msg.content)
+
+                    group, comp, score = best_raids[raidnum]
+                    # Update bench and jobs
+                    for i, player in enumerate(participants):
+                        if player in group:
+                            event.is_bench[i] = 0
+                            job = comp[group.index(player)]
+                            event.jobs.append(job)
+                            # Players num_raids ++
+                            update_player(conn, "num_raids", num_raids[i] + 1,
+                                          player.discord_id, player.character_name)
+                        else:
+                            if event.is_bench[i] == 0:
+                                # Player did not want to be benched, involuntary benches ++
+                                update_player(conn, "involuntary_benches", player.involuntary_benches + 1,
+                                              player.discord_id, player.character_name)
+
+                            event.is_bench[i] = 1
+                            event.jobs.append(None)
+                    # Sort lists according to FF sorting
+                    job_inds = [JOBS.index(j) if j else float('Inf') for j in event.jobs]
+                    new_inds = [i[0] for i in sorted(enumerate(job_inds), key=lambda x:x[1])]
+
+                    event.participant_ids = [event.participant_ids[i] for i in new_inds]
+                    update_event(conn, "participant_ids", col_str(event.participant_ids), event.id)
+                    event.participant_names = [event.participant_names[i] for i in new_inds]
+                    update_event(conn, "participant_names", col_str(event.participant_names), event.id)
+                    event.jobs = [event.jobs[i] for i in new_inds]
+                    update_event(conn, "jobs", col_str(event.jobs), event.id)
+                    event.is_bench = [event.is_bench[i] for i in new_inds]
+                    update_event(conn, "is_bench", col_str(event.is_bench), event.id)
+
+                    # Edit Event post and make message
+                    link = event.message_link.split('/')
+                    message = await bot.get_guild(int(link[-3])).get_channel(int(link[-2])).fetch_message(
+                        int(link[-1]))
+                    event.state = "COMPLETE"
+                    update_event(conn, "state", event.state, event.id)
+                    embed = make_event_embed(event, message.guild, False)
+                    await message.edit(embed=embed)
+                    for em in [emoji_dict["sign_in"], emoji_dict["sign_out"], emoji_dict["bench"]]:
+                        await message.remove_reaction(em, bot.user)
+                    new_emb = discord.Embed(title=f"**Event {event.id} - {event.name}**",
+                                            description=f"Recruitment has ended.",
+                                            color=discord.Color.dark_gold())
+                    signed_str, bench_str = event.signed_in_and_benched_as_strs()
+                    if signed_str:
+                        new_emb.add_field(name="**Participants**", value=signed_str, inline=False)
+                    if event.jobs:
+                        new_emb.add_field(name="**Jobs**", value=job_emoji_str(event.jobs), inline=False)
+                    await ctx.send(ping_string(event.participant_ids), embed=new_emb)
+                    await ctx.message.author.send(f'You have set the event and participants.')
+                    return
+
+        else:
+            await ctx.send(f'There is no event with id {ev_id}.')
+            return
+    else:
+        await ctx.send('Could not connect to database.')
         return
 
 
@@ -324,7 +649,7 @@ async def on_raw_reaction_add(reaction):
                     update_event(conn,  "is_bench", col_str(event.is_bench), event.id)
                     embed = make_event_embed(event, message.guild, True)
                     await message.edit(embed=embed)
-                    await user.send(f'You are now signed out of {event.id}!')
+                    # await user.send(f'You are now signed out of {event.id}!')
                     await message.remove_reaction(emoji, user)
                     return
                 elif emoji.name == emoji_dict['bench'].split(":")[1]:
@@ -371,7 +696,7 @@ async def on_raw_reaction_add(reaction):
                     update_event(conn, "is_bench", col_str(event.is_bench), event.id)
                     embed = make_event_embed(event, message.guild, True)
                     await message.edit(embed=embed)
-                    await user.send(f'You are now signed in for {event.id}!')
+                    # await user.send(f'You are now signed in for {event.id}!')
                     await message.remove_reaction(emoji, user)
                     return
 
@@ -385,20 +710,6 @@ async def on_raw_reaction_add(reaction):
             return
     else:
         return
-
-
-# @bot.event
-# async def on_raw_reaction_remove(reaction):
-#     emoji = reaction.emoji
-#     user = reaction.member
-#     if user.bot:
-#         return
-#     if emoji.name == emoji_dict['sign_in'].split(":")[1]:
-#         print("Someone signed out")
-#     elif emoji.name == emoji_dict['bench'].split(":")[1]:
-#         print("Someone stood up from the bench")
-#     else:
-#         return
 
 
 @bot.event
