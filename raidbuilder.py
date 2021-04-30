@@ -29,7 +29,7 @@ def job_string_to_list(job_string: str):
 class Character:
     """A Class defining a character.
     Note: Job_list should be given in Order of priority."""
-    def __init__(self, discord_id, name, job_list, involuntary_benches):
+    def __init__(self, discord_id: int, name: str, job_list: str, involuntary_benches: int):
         self.discord_id = discord_id
         self.character_name = name
         self.jobs = []
