@@ -4,8 +4,26 @@ from datetime import datetime
 import time
 from tqdm import tqdm
 
-PLAYER_COLUMNS = ["discord_id", "character_name", "jobs", "num_raids"]
-EVENT_COLUMNS = ["name", "timestamp", "participant_names", "participant_ids", "jobs", "state"]
+PLAYER_COLUMNS = ["discord_id", "character_name", "jobs", "signup_date", "num_raids", "involuntary_benches"]
+PLAYER_COLUMNS_TYPES = ["integer NOT NULL", "text NOT NULL", "text", "text", "integer", "integer"]
+
+EVENT_COLUMNS = ["name", "timestamp", "participant_names", "participant_ids", "is_bench", "jobs", "role_numbers", "creator_id", "message_link", "state"]
+EVENT_COLUMNS_TYPES = ["text NOT NULL", "integer NOT NULL", "text", "text", "text", "text",  "text", "integer NOT NULL", "text", "text NOT NULL"]
+
+
+def col_str(col_list):
+    col_string = ""
+    for c in col_list:
+        col_string += str(c) + ","
+    return col_string[:-1]
+
+
+def create_table_sql_command(name, cols, col_types):
+    sql_table = f"""CREATE TABLE IF NOT EXISTS {name} (\nid integer PRIMARY KEY,\n"""
+    for entry, ty in zip(cols, col_types):
+        sql_table += entry + " " + ty + ",\n"
+    sql_table = sql_table[:-2] + "\n);"
+    return sql_table
 
 
 def create_connection(db_file: str):
@@ -42,8 +60,10 @@ def create_player(conn, player: str):
     :param player:
     :return: player id
     """
-    sql = ''' INSERT INTO players(discord_id,character_name,jobs,signup_date,num_raids)
-              VALUES(?,?,?,?,?) '''
+    player_col_str = col_str(PLAYER_COLUMNS)
+    question_str = col_str(["?" for _ in PLAYER_COLUMNS])
+    sql = f''' INSERT INTO players({player_col_str})
+              VALUES({question_str}) '''
     cur = conn.cursor()
     cur.execute(sql, player)
     conn.commit()
@@ -127,8 +147,10 @@ def create_event(conn, event):
     :param event:
     :return: player id
     """
-    sql = ''' INSERT INTO events(name,timestamp,participant_names,participant_ids,jobs,state)
-              VALUES(?,?,?,?,?,?) '''
+    event_col_str = col_str(EVENT_COLUMNS)
+    question_str = col_str(["?" for _ in EVENT_COLUMNS])
+    sql = f''' INSERT INTO events({event_col_str})
+               VALUES({question_str}) '''
     cur = conn.cursor()
     cur.execute(sql, event)
     conn.commit()
@@ -212,27 +234,12 @@ def delete_all_events(conn):
 if __name__ == '__main__':
 
     # Keep track of all players
-    sql_create_player_table = """ CREATE TABLE IF NOT EXISTS players (
-                                        id integer PRIMARY KEY,
-                                        discord_id integer NOT NULL,
-                                        character_name text NOT NULL,
-                                        jobs text,
-                                        signup_date text,
-                                        num_raids integer
-                                    ); """
+    sql_create_player_table = create_table_sql_command("players", PLAYER_COLUMNS, PLAYER_COLUMNS_TYPES)
 
     # Keep track of Events
-    sql_create_events_table = """ CREATE TABLE IF NOT EXISTS events (
-                                        id integer PRIMARY KEY,
-                                        name text NOT NULL,
-                                        timestamp integer NOT NULL,
-                                        participant_names text,
-                                        participant_ids text,
-                                        jobs text,
-                                        state text NOT NULL
-                                    ); """
+    sql_create_events_table = create_table_sql_command("events", EVENT_COLUMNS, EVENT_COLUMNS_TYPES)
 
-    conn = create_connection(r"database/test.db")
+    conn = create_connection(r"database/test_2.db")
 
     # create tables
     with conn:
@@ -248,10 +255,11 @@ if __name__ == '__main__':
         # -----------------------------------------------
         # create a new Player
         for i in tqdm(range(100)):
-            player = (1234567890 + i, "Nama Zu", "PLD,DNC,SAM,MCH", datetime.today().strftime('%Y-%m-%d'), 0)
+            player = (1234567890 + i, "Nama Zu", "PLD,DNC,SAM,MCH", datetime.today().strftime('%Y-%m-%d'), 0, 0)
             create_player(conn, player)
 
         # update player
+        update_player(conn, "discord_id", 205335642287112192, 1234567902, "Nama Zu")
         update_player(conn, "character_name", "Na Mazu", 1234567904, "Nama Zu")
         update_player(conn, "jobs", "SAM", 1234567904, "Na Mazu")
         update_player(conn, "num_raids", 10, 1234567904, "Na Mazu")
@@ -271,14 +279,17 @@ if __name__ == '__main__':
         # -----------------------------------------------
         # create a new Event
         for i in tqdm(range(100)):
-            event = ("Expert Roulette", int(time.time()), "A,B,C,D", "1,2,3,4", "PLD,SCH,MNK,RDM", "COMPLETED")
+            event = ("Expert Roulette", int(time.time()), "A,B,C,D", "1,2,3,4", "0,0,0,0",
+                     "PLD,SCH,MNK,RDM", "1,1,2", 205335642287112192, None,  "COMPLETED")
             create_event(conn, event)
 
         # update event
         update_event(conn, "name", "Leviathan (Unreal)", 3)
         update_event(conn, "participant_names", "A,B,C,D,E,F,G,H", 3)
         update_event(conn, "participant_ids", "1,2,3,4,5,6,7,8", 3)
+        update_event(conn, "is_bench", col_str(["0" for _ in range(8)]), 3)
         update_event(conn, "jobs", "PLD,DRK,WHM,SCH,DRG,SAM,BLM,BRD", 3)
+        update_event(conn, "role_numbers", "2,2,4", 3)
         update_event(conn, "state", "CANCELLED", 5)
 
         # delete event
