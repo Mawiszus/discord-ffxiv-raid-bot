@@ -7,15 +7,20 @@ import asyncio
 
 import discord
 from discord.ext import commands
-from dotenv import load_dotenv
 from pytz import timezone
-from pytz.exceptions import UnknownTimeZoneError
 
-from event import make_event_from_db, Event
-from database import create_connection, create_event, update_event, find_events, col_str, get_player_by_id
-from database import create_player, delete_player, update_player, get_event
-from raidbuilder import make_character_from_db, Character, make_raid, JOBS
-from emoji_dict import emoji_dict
+from raidbot.event import make_event_from_db, Event
+from raidbot.database import *
+from raidbot.raidbuilder import make_character_from_db, Character, make_raid, JOBS
+from raidbot.emoji_dict import emoji_dict
+
+intents = discord.Intents().default()
+intents.members = True
+bot = commands.Bot(command_prefix='$', intents=intents)
+
+
+def run(TOKEN):
+    bot.run(TOKEN)
 
 
 def job_emoji_str(job_list):
@@ -43,18 +48,15 @@ def build_countdown_link(timestamp):
            f"T{dt_obj.hour:02}{dt_obj.minute:02}{dt_obj.second:02}&p0=0&font=cursive"
     return link
 
-
-load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN')
-
-intents = discord.Intents().default()
-intents.members = True
-bot = commands.Bot(command_prefix='$', intents=intents)
-
-
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} has connected to Discord!')
+
+
+@bot.event
+async def on_guild_join(guild):
+    conn = create_connection(guild.id)
+    initialize_db_with_tables(conn)
 
 
 @bot.command(name='hello', help='Answers with an appropriate hello message')
@@ -125,7 +127,7 @@ def make_character_embed(ch: Character, date, num_raids):
 
 @bot.command(name='show-event', help='Shows an event from the database given its id')
 async def show_event(ctx, event_id):
-    conn = create_connection(r"database/test_2.db")
+    conn = create_connection(ctx.guild.id)
     if conn is not None:
         try:
             event = make_event_from_db(conn, event_id)
@@ -142,7 +144,7 @@ async def show_event(ctx, event_id):
 @bot.command(name='show-player', help='Shows characters registered with the given Discord ID')
 async def show_player(ctx, discord_id):
     num_id = int(discord_id[3:-1])
-    conn = create_connection(r"database/test_2.db")
+    conn = create_connection(ctx.guild.id)
     if conn is not None:
         try:  # TODO: handle multiple characters registered with the same discord id
             chara, date, num_raids = make_character_from_db(conn, num_id, None)
@@ -158,7 +160,7 @@ async def show_player(ctx, discord_id):
                                      'name, date (format d-m-y), time (format HH:MM), '
                                      'num_Tanks, num_Heals, num_DPS, timezone (optional, default GMT)')
 async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps, user_timezone="GMT"):
-    conn = create_connection(r"database/test_2.db")
+    conn = create_connection(ctx.guild.id)
     if conn is not None:
         try:
             tz = timezone(user_timezone)
@@ -201,7 +203,7 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
 @bot.command(name='edit-event', help='Edits the given field of an event given its id. Only the event creator can edit. '
                                      'Field can be either name, date, time. Time will always be assumed GMT.')
 async def edit_event(ctx, ev_id, field, value):
-    conn = create_connection(r"database/test_2.db")
+    conn = create_connection(ctx.guild.id)
     if conn is not None:
         db_ev = get_event(conn, ev_id)
         if db_ev:
@@ -271,7 +273,7 @@ async def edit_event(ctx, ev_id, field, value):
 @bot.command(name='close-event', help='closes recruitment for an event. Will ask you to decide on the composition'
                                       'via DM. Needs the event ID.')
 async def close_event(ctx, ev_id):
-    conn = create_connection(r"database/test_2.db")
+    conn = create_connection(ctx.guild.id)
     if conn is not None:
         db_ev = get_event(conn, ev_id)
         if db_ev:
@@ -526,7 +528,7 @@ async def close_event(ctx, ev_id):
 @bot.command(name='register-character', help='Registers a character given parameters: name ("Firstname Lastname"), '
                                              'job_list (formatted like "JOB,JOB,JOB", given in order of your priority)')
 async def register_character(ctx, name, job_list):
-    conn = create_connection(r"database/test_2.db")
+    conn = create_connection(ctx.guild.id)
     if conn is not None:
         disc_id = ctx.message.author.id
         db_chara = get_player_by_id(conn, disc_id)
@@ -538,7 +540,7 @@ async def register_character(ctx, name, job_list):
             return
         try:
             chara = Character(disc_id, name, job_list, 0)
-            player = (chara.discord_id, name, job_list, datetime.datetime.today().strftime('%Y-%m-%d'), 0, 0)
+            player = (chara.discord_id, name, job_list, datetime.today().strftime('%Y-%m-%d'), 0, 0)
             create_player(conn, player)
             embed = make_character_embed(chara, player[3], player[4])
             await ctx.send(f"<@{chara.discord_id}>'s character:", embed=embed)
@@ -554,7 +556,7 @@ async def register_character(ctx, name, job_list):
 
 @bot.command(name='delete-character', help='Deletes the character registered with your discord id.')
 async def delete_character(ctx):
-    conn = create_connection(r"database/test_2.db")
+    conn = create_connection(ctx.guild.id)
     if conn is not None:
         disc_id = ctx.message.author.id
         db_chara = get_player_by_id(conn, disc_id)
@@ -574,7 +576,7 @@ async def delete_character(ctx):
 @bot.command(name='add-job', help="adds given job at given position in your character's job list. "
                                   "Pos 0 is in front of 1st job, pos 1 in front of 2nd job etc.")
 async def add_job(ctx, job, pos):
-    conn = create_connection(r"database/test_2.db")
+    conn = create_connection(ctx.guild.id)
     if conn is not None:
         disc_id = ctx.message.author.id
         db_chara = get_player_by_id(conn, disc_id)
@@ -606,7 +608,7 @@ async def add_job(ctx, job, pos):
 
 @bot.command(name='remove-job', help="removes the given job from your character's job list.")
 async def remove_job(ctx, job):
-    conn = create_connection(r"database/test_2.db")
+    conn = create_connection(ctx.guild.id)
     if conn is not None:
         disc_id = ctx.message.author.id
         db_chara = get_player_by_id(conn, disc_id)
@@ -641,7 +643,7 @@ async def on_raw_reaction_add(reaction):
                       emoji_dict['sign_out'].split(":")[1]]:
         message = await bot.get_guild(reaction.guild_id).get_channel(reaction.channel_id).fetch_message(reaction.message_id)
         # Find corresponding event
-        conn = create_connection(r"database/test_2.db")
+        conn = create_connection(reaction.message.guild)
         if conn is not None:
             db_ev = find_events(conn, "message_link", message.jump_url)
             if not db_ev:
@@ -786,5 +788,3 @@ async def send_cmd_help(ctx):
 #         await message.author.send(message.content)
 #     else:
 #         await bot.process_commands(message)
-
-bot.run(TOKEN)
