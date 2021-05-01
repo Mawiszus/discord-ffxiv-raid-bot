@@ -1,5 +1,6 @@
 import sqlite3
 from sqlite3 import Error
+from pathlib import Path
 from datetime import datetime
 import time
 from tqdm import tqdm
@@ -26,12 +27,21 @@ def create_table_sql_command(name, cols, col_types):
     return sql_table
 
 
-def create_connection(db_file):
+def initialize_db_with_tables(conn):
+    sql_create_player_table_str: str = create_table_sql_command("players", PLAYER_COLUMNS, PLAYER_COLUMNS_TYPES)
+    sql_create_events_table_str: str = create_table_sql_command("events", EVENT_COLUMNS, EVENT_COLUMNS_TYPES)
+
+    create_table(conn, sql_create_player_table_str)
+    create_table(conn, sql_create_events_table_str)
+
+
+def create_connection(db_file: str):
     """ create a database connection to a SQLite database """
     conn = None
     try:
-        conn = sqlite3.connect(db_file)
-        # print(sqlite3.version)
+        Path("../database/").mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect("./database/" + str(db_file) + r".db")
+
     except Error as e:
         print(e)
     # finally:
@@ -40,7 +50,7 @@ def create_connection(db_file):
     return conn
 
 
-def create_table(conn, create_table_sql):
+def create_table(conn, create_table_sql: str):
     """ create a table from the create_table_sql statement
     :param conn: Connection object
     :param create_table_sql: a CREATE TABLE statement
@@ -53,7 +63,7 @@ def create_table(conn, create_table_sql):
         print(e)
 
 
-def create_player(conn, player):
+def create_player(conn, player: str):
     """
     Create a new player into the player table
     :param conn:
@@ -158,7 +168,11 @@ def create_event(conn, event):
 
 
 def find_events(conn, field, value):
-    """Find the id of an event by searching for other fields"""
+    """
+    Find the id of an event by searching for other fields
+    :param field: The database field/column that will be searched
+    :param value: The value being searched
+    """
     cur = conn.cursor()
     if isinstance(value, str):
         # Add wildcard
@@ -174,7 +188,7 @@ def get_event(conn, event_id):
     return cur.fetchall()
 
 
-def get_last_x_events(conn, x):
+def get_last_x_events(conn, x: int):
     """Returns the x latest events"""
     sql = ''' SELECT * FROM events
               ORDER BY rowid DESC

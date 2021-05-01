@@ -2,8 +2,8 @@ from datetime import datetime
 from pytz import timezone
 from pytz.exceptions import UnknownTimeZoneError
 
-from raidbuilder import job_string_to_list, string_from_list
-from database import get_event, create_connection
+from raidbot.raidbuilder import job_string_to_list, string_from_list
+from raidbot.database import get_event, create_connection
 
 
 class Event:
