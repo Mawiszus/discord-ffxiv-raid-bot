@@ -1,7 +1,7 @@
 import itertools
 import time
 
-from database import get_player, get_player_by_id, get_player_by_name
+from raidbot.database import get_player, get_player_by_id, get_player_by_name
 
 TANKS = ["WAR", "PLD", "DRK", "GNB"]
 HEALERS = ["WHM", "SCH", "AST"]

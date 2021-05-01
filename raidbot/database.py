@@ -39,7 +39,7 @@ def create_connection(db_file: str):
     """ create a database connection to a SQLite database """
     conn = None
     try:
-        Path("./database/").mkdir(parents=True, exist_ok=True)
+        Path("../database/").mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect("./database/" + str(db_file) + r".db")
 
     except Error as e:

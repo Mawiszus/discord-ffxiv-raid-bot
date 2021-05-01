@@ -7,14 +7,20 @@ import asyncio
 
 import discord
 from discord.ext import commands
-from dotenv import load_dotenv
 from pytz import timezone
-from pytz.exceptions import UnknownTimeZoneError
 
-from event import make_event_from_db, Event
-from database import *
-from raidbuilder import make_character_from_db, Character, make_raid, JOBS
-from emoji_dict import emoji_dict
+from raidbot.event import make_event_from_db, Event
+from raidbot.database import *
+from raidbot.raidbuilder import make_character_from_db, Character, make_raid, JOBS
+from raidbot.emoji_dict import emoji_dict
+
+intents = discord.Intents().default()
+intents.members = True
+bot = commands.Bot(command_prefix='$', intents=intents)
+
+
+def run(TOKEN):
+    bot.run(TOKEN)
 
 
 def job_emoji_str(job_list):
@@ -41,15 +47,6 @@ def build_countdown_link(timestamp):
     link = f"https://www.timeanddate.com/countdown/generic?iso={dt_obj.year}{dt_obj.month:02}{dt_obj.day:02}" \
            f"T{dt_obj.hour:02}{dt_obj.minute:02}{dt_obj.second:02}&p0=0&font=cursive"
     return link
-
-
-load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN')
-
-intents = discord.Intents().default()
-intents.members = True
-bot = commands.Bot(command_prefix='$', intents=intents)
-
 
 @bot.event
 async def on_ready():
@@ -776,5 +773,3 @@ async def send_cmd_help(ctx):
 #         await message.author.send(message.content)
 #     else:
 #         await bot.process_commands(message)
-
-bot.run(TOKEN)
