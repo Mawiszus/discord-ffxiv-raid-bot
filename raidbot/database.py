@@ -11,6 +11,9 @@ PLAYER_COLUMNS_TYPES = ["integer NOT NULL", "text NOT NULL", "text", "text", "in
 EVENT_COLUMNS = ["name", "timestamp", "participant_names", "participant_ids", "is_bench", "jobs", "role_numbers", "creator_id", "message_link", "state"]
 EVENT_COLUMNS_TYPES = ["text NOT NULL", "integer NOT NULL", "text", "text", "text", "text",  "text", "integer NOT NULL", "text", "text NOT NULL"]
 
+SERVER_INFO_COLUMNS = ["key", "value"]
+SERVER_INFO_COLUMNS_TYPES = ["text", "text"]
+
 
 def col_str(col_list):
     col_string = ""
@@ -30,9 +33,11 @@ def create_table_sql_command(name, cols, col_types):
 def initialize_db_with_tables(conn):
     sql_create_player_table_str: str = create_table_sql_command("players", PLAYER_COLUMNS, PLAYER_COLUMNS_TYPES)
     sql_create_events_table_str: str = create_table_sql_command("events", EVENT_COLUMNS, EVENT_COLUMNS_TYPES)
+    sql_create_server_table_str: str = create_table_sql_command("server_info", SERVER_INFO_COLUMNS, SERVER_INFO_COLUMNS_TYPES)
 
     create_table(conn, sql_create_player_table_str)
     create_table(conn, sql_create_events_table_str)
+    create_table(conn, sql_create_server_table_str)
 
 
 def create_connection(db_file: str):
@@ -239,6 +244,40 @@ def delete_all_events(conn):
     cur = conn.cursor()
     cur.execute(sql)
     conn.commit()
+
+
+def get_server_info(conn, key):
+    """Find server_info given key"""
+    cur = conn.cursor()
+    cur.execute(f"SELECT * FROM server_info WHERE key=?", (key,))
+    return cur.fetchall()
+
+
+def create_server_info(conn, key, value):
+    """
+    Create a new info into the server_info table
+    """
+    info_col_str = col_str(SERVER_INFO_COLUMNS)
+    question_str = col_str(["?" for _ in SERVER_INFO_COLUMNS])
+    sql = f''' INSERT INTO server_info({info_col_str})
+               VALUES({question_str}) '''
+    cur = conn.cursor()
+    cur.execute(sql, (key, value))
+    conn.commit()
+    return cur.lastrowid
+
+
+def update_server_info(conn, key, value):
+    """
+    update an entry of server_info
+    """
+    sql = f''' UPDATE server_info
+               SET value = ?
+               WHERE key = ?'''
+    cur = conn.cursor()
+    cur.execute(sql, (value, key))
+    conn.commit()
+    return
 
 
 if __name__ == '__main__':

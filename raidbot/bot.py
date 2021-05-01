@@ -48,6 +48,7 @@ def build_countdown_link(timestamp):
            f"T{dt_obj.hour:02}{dt_obj.minute:02}{dt_obj.second:02}&p0=0&font=cursive"
     return link
 
+
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} has connected to Discord!')
@@ -57,6 +58,7 @@ async def on_ready():
 async def on_guild_join(guild):
     conn = create_connection(guild.id)
     initialize_db_with_tables(conn)
+    conn.close()
 
 
 @bot.command(name='hello', help='Answers with an appropriate hello message')
@@ -79,9 +81,41 @@ async def talkin_shit(ctx):
     await ctx.send('https://tenor.com/view/ffxiv-ff14-namazu-heard-you-talkin-shit-gif-15779424')
 
 
-@bot.command(name='dm', help='Sends you a dm')
-async def dm(ctx):
-    await ctx.author.send('Hello')
+@bot.command(name='set-event-channel', help='Sets the channel to post events in. '
+                                            'Channel should be given with # and linked. '
+                                            'Bot needs to be allowed to post in that channel. '
+                                            'Can only be executed by admins.')
+@commands.has_permissions(administrator=True)
+async def set_event_channel(ctx, channel):
+    if channel[0:2] != "<#":
+        await ctx.send('Channel should be given with # and linked.')
+        return
+
+    channel_obj = bot.get_channel(int(channel[2:-1]))
+    if not channel_obj:
+        await ctx.send(f'Channel {channel} does not exist.')
+        return
+    if channel_obj.type.name != 'text':
+        await ctx.send(f'Channel {channel} is not a text channel.')
+        return
+    req_permissions = discord.Permissions(2148001856)
+    # Check discord developer portal for correct integer for permissions
+    if not ctx.guild.me.permissions_in(channel_obj).is_superset(req_permissions):
+        # if our bot does not have the required (or more) permissions in a channel
+        await ctx.send(f'The bot does not have the required permissions in channel {channel}. '
+                       f'Please set the correct permissions beforehand.')
+        return
+    conn = create_connection(ctx.guild.id)
+    if conn is not None:
+        db_channel = get_server_info(conn, "event_channel")
+        if db_channel:
+            update_server_info(conn, "event_channel", channel)
+        else:
+            create_server_info(conn, "event_channel", channel)
+        conn.close()
+        await ctx.send(f"Channel {channel} is set as event_channel. All events will now be posted there.")
+    else:
+        await ctx.send('Could not connect to database.')
 
 
 def make_event_embed(ev: Event, guild, add_legend=False):
@@ -134,8 +168,10 @@ async def show_event(ctx, event_id):
             embed = make_event_embed(event, ctx.guild)
             if event.message_link:
                 embed.add_field(name="**Original post**", value=f"[link]({event.message_link})", inline=False)
+            conn.close()
             await ctx.send(embed=embed)
         except Exception:
+            conn.close()
             await ctx.send(f'Could not find event with id {event_id}. This event might not exist (yet).')
     else:
         await ctx.send('Could not connect to database.')
@@ -149,8 +185,10 @@ async def show_player(ctx, discord_id):
         try:  # TODO: handle multiple characters registered with the same discord id
             chara, date, num_raids = make_character_from_db(conn, num_id, None)
             embed = make_character_embed(chara, date, num_raids)
+            conn.close()
             await ctx.send(f"<@{num_id}>'s character:", embed=embed)
         except Exception:
+            conn.close()
             await ctx.send(f'Could not find character with id <@{num_id}>. This player might not be registered (yet).')
     else:
         await ctx.send('Could not connect to database.')
@@ -165,6 +203,7 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
         try:
             tz = timezone(user_timezone)
         except Exception:
+            conn.close()
             await ctx.send(f"Unknown timezone {user_timezone}, use format like 'Europe/Amsterdam'")
             return
 
@@ -174,6 +213,7 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
             dt_obj = datetime(int(y), int(m), int(d), int(hour), int(minute))
             dt_obj = tz.normalize(tz.localize(dt_obj))
         except Exception:
+            conn.close()
             await ctx.send(f"Could not parse date and/or time, make sure to format like this: "
                            f"dd-mm-yyyy hh:mm (in 24 hour format)")
             return
@@ -186,14 +226,25 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
         try:
             event = make_event_from_db(conn, ev_id)
         except Exception:
+            conn.close()
             await ctx.send(f'Could not find event with id {ev_id}. This event might not exist (yet).')
             return
         embed = make_event_embed(event, ctx.guild, True)
-        message = await ctx.send(embed=embed)
+        # Check if we have an event channel
+        db_eventchannel = get_server_info(conn, "event_channel")
+        if db_eventchannel:
+            channel = db_eventchannel[0][2]
+            message = await ctx.guild.get_channel(int(channel[2:-1])).send(embed=embed)
+            new_embed = make_event_embed(event, ctx.guild, False)
+            new_embed.add_field(name="**Original post**", value=f"[link]({message.jump_url})", inline=False)
+            await ctx.send(embed=new_embed)
+        else:
+            message = await ctx.send(embed=embed)
         update_event(conn, "message_link", message.jump_url, ev_id)
         await message.add_reaction(emoji_dict["sign_in"])
         await message.add_reaction(emoji_dict["bench"])
         await message.add_reaction(emoji_dict["sign_out"])
+        conn.close()
         return
     else:
         await ctx.send('Could not connect to database. Need connection to create and save events.')
@@ -209,6 +260,7 @@ async def edit_event(ctx, ev_id, field, value):
         if db_ev:
             event = make_event_from_db(conn, ev_id)
             if event.creator_id != ctx.message.author.id:
+                conn.close()
                 await ctx.send(f'You are not the author for this event. Only the author can edit events.')
                 return
             if field == "name":
@@ -219,6 +271,7 @@ async def edit_event(ctx, ev_id, field, value):
                 embed = make_event_embed(event, message.guild, True if event.state == "RECRUITING" else False)
                 await message.edit(embed=embed)
                 await ctx.send("Event name updated.")
+                conn.close()
                 await show_event(ctx, event.id)
                 return
             elif field == "date":
@@ -227,6 +280,7 @@ async def edit_event(ctx, ev_id, field, value):
                     d, m, y = value.split("-")
                     dt_object = dt_object.replace(day=int(d), month=int(m), year=int(y), tzinfo=timezone("GMT"))
                 except Exception:
+                    conn.close()
                     await ctx.send(f"Could not parse date, make sure to format like this: "
                                    f"dd-mm-yyyy")
                     return
@@ -237,6 +291,7 @@ async def edit_event(ctx, ev_id, field, value):
                 embed = make_event_embed(event, message.guild, True if event.state == "RECRUITING" else False)
                 await message.edit(embed=embed)
                 await ctx.send("Event date updated.")
+                conn.close()
                 await show_event(ctx, event.id)
                 return
 
@@ -246,6 +301,7 @@ async def edit_event(ctx, ev_id, field, value):
                     hour, minute = value.split(":")
                     dt_object = dt_object.replace(hour=int(hour), minute=int(minute), tzinfo=timezone("GMT"))
                 except Exception:
+                    conn.close()
                     await ctx.send(f"Could not parse time, make sure to format like this: "
                                    f"hh:mm (in 24 hour format)")
                     return
@@ -257,12 +313,15 @@ async def edit_event(ctx, ev_id, field, value):
                 await message.edit(embed=embed)
                 await ctx.send("Event time updated.")
                 await show_event(ctx, event.id)
+                conn.close()
                 return
             else:
+                conn.close()
                 await ctx.send(f'{field} is not an editable field.\n'
                                f'Editable fields are "name", "date", "time"')
                 return
         else:
+            conn.close()
             await ctx.send(f'There is no event with id {ev_id}.')
             return
     else:
@@ -279,9 +338,11 @@ async def close_event(ctx, ev_id):
         if db_ev:
             event = make_event_from_db(conn, ev_id)
             if event.creator_id != ctx.message.author.id:
+                conn.close()
                 await ctx.send(f'You are not the author for this event. Only the author can close events.')
                 return
             if event.state != "RECRUITING":
+                conn.close()
                 await ctx.send(f'This event has already been closed.')
                 return
             if len(event.participant_ids) < sum(event.role_numbers):
@@ -300,6 +361,7 @@ async def close_event(ctx, ev_id):
                 try:
                     msg = await bot.wait_for('message', check=check, timeout=3600.0)
                 except asyncio.TimeoutError:
+                    conn.close()
                     await ctx.message.author.send(f'Stopping $close-event dialogue due to timeout.')
                     return
                 else:
@@ -346,6 +408,7 @@ async def close_event(ctx, ev_id):
                         await ctx.send(embed=new_emb)
                     elif msg.content == "esc":
                         await ctx.message.author.send(f'Stopping $close-event dialogue.')
+                conn.close()
                 return
             else:
                 # THIS IS WHERE THE MAGIC HAPPENS!
@@ -381,6 +444,7 @@ async def close_event(ctx, ev_id):
                     try:
                         msg = await bot.wait_for('message', check=check, timeout=3600.0)
                     except asyncio.TimeoutError:
+                        conn.close()
                         await ctx.message.author.send(f'Stopping $close-event dialogue due to timeout.')
                         return
                     else:
@@ -425,6 +489,7 @@ async def close_event(ctx, ev_id):
                             await ctx.send(embed=new_emb)
                         elif msg.content == "esc":
                             await ctx.message.author.send(f'Stopping $close-event dialogue.')
+                    conn.close()
                     return
 
                 # We have at least 1 working combo
@@ -451,9 +516,11 @@ async def close_event(ctx, ev_id):
                 try:
                     msg = await bot.wait_for('message', check=check, timeout=3600.0)
                 except asyncio.TimeoutError:
+                    conn.close()
                     await ctx.message.author.send(f'Stopping $close-event dialogue due to timeout.')
                     return
                 except Exception:
+                    conn.close()
                     await ctx.message.author.send(f'You sent something I cannot convert to a number. '
                                                   f'I cannot deal with this so you will have to '
                                                   f'restart the closing process.')
@@ -514,10 +581,12 @@ async def close_event(ctx, ev_id):
                     if event.jobs:
                         new_emb.add_field(name="**Jobs**", value=job_emoji_str(event.jobs), inline=False)
                     await ctx.send(ping_string(event.participant_ids), embed=new_emb)
+                    conn.close()
                     await ctx.message.author.send(f'You have set the event and participants.')
                     return
 
         else:
+            conn.close()
             await ctx.send(f'There is no event with id {ev_id}.')
             return
     else:
@@ -535,6 +604,7 @@ async def register_character(ctx, name, job_list):
         if db_chara:
             chara, date, num_raids = make_character_from_db(conn, disc_id, None)
             embed = make_character_embed(chara, date, num_raids)
+            conn.close()
             await ctx.send(f"There is already a character registered by <@{disc_id}>, "
                            f"multiple characters are not supported (yet).", embed=embed)
             return
@@ -545,6 +615,7 @@ async def register_character(ctx, name, job_list):
             embed = make_character_embed(chara, player[3], player[4])
             await ctx.send(f"<@{chara.discord_id}>'s character:", embed=embed)
         except Exception:
+            conn.close()
             await ctx.send('Could not parse name and/or job list. '
                            'Format like this: "Firstname Lastname", "JOB,JOB,JOB"')
             return
@@ -563,9 +634,11 @@ async def delete_character(ctx):
         if db_chara:
             chara, _, _ = make_character_from_db(conn, disc_id, None)
             delete_player(conn, disc_id, chara.character_name)
+            conn.close()
             await ctx.send(f'Character **{chara.character_name}** by <@{disc_id}> is now deleted.')
             return
         else:
+            conn.close()
             await ctx.send(f'There is no character registered by <@{disc_id}> to delete.')
             return
     else:
@@ -586,19 +659,23 @@ async def add_job(ctx, job, pos):
             try:
                 job_list.insert(int(pos), job.upper())
             except Exception:
+                conn.close()
                 await ctx.send(f'Could not parse position. '
                                f'Position needs to be a valid insertion number for your job list.')
                 return
             try:
                 chara.set_jobs(job_list)
             except SyntaxError as e:
+                conn.close()
                 await ctx.send(f'Could not add job. {e.msg}.')
                 return
             update_player(conn, "jobs", col_str(chara.jobs), disc_id, chara.character_name)
             embed = make_character_embed(chara, date, num_raids)
+            conn.close()
             await ctx.send(f"<@{chara.discord_id}>'s character:", embed=embed)
             return
         else:
+            conn.close()
             await ctx.send(f'There is no character registered by <@{disc_id}> to add jobs to.')
             return
     else:
@@ -617,14 +694,17 @@ async def remove_job(ctx, job):
             try:
                 chara.jobs.remove(job.upper())
             except ValueError:
+                conn.close()
                 await ctx.send(f'Job {job.upper()} is not in your job list.')
                 return
 
             update_player(conn, "jobs", col_str(chara.jobs), disc_id, chara.character_name)
             embed = make_character_embed(chara, date, num_raids)
+            conn.close()
             await ctx.send(f"<@{chara.discord_id}>'s character:", embed=embed)
             return
         else:
+            conn.close()
             await ctx.send(f'There is no character registered by <@{disc_id}> to remove jobs from.')
             return
     else:
@@ -648,11 +728,13 @@ async def on_raw_reaction_add(reaction):
             db_ev = find_events(conn, "message_link", message.jump_url)
             if not db_ev:
                 # Reaction was not on an event post
+                conn.close()
                 return
             event = Event(*db_ev[0])
             if event.state != "RECRUITING":
                 await user.send(f'You are trying to sign in/out for Event {event.id}, '
                                 f'but the recruitment has ended.')
+                conn.close()
                 await message.remove_reaction(emoji, user)
                 return
 
@@ -668,6 +750,7 @@ async def on_raw_reaction_add(reaction):
                     embed = make_event_embed(event, message.guild, True)
                     await message.edit(embed=embed)
                     # await user.send(f'You are now signed out of {event.id}!')
+                    conn.close()
                     await message.remove_reaction(emoji, user)
                     return
                 elif emoji.name == emoji_dict['bench'].split(":")[1]:
@@ -678,6 +761,7 @@ async def on_raw_reaction_add(reaction):
                         update_event(conn, "is_bench", col_str(event.is_bench), event.id)
                         embed = make_event_embed(event, message.guild, True)
                         await message.edit(embed=embed)
+                        conn.close()
                         await message.remove_reaction(emoji, user)
                         return
                 elif emoji.name == emoji_dict['sign_in'].split(":")[1]:
@@ -688,6 +772,7 @@ async def on_raw_reaction_add(reaction):
                         update_event(conn, "is_bench", col_str(event.is_bench), event.id)
                         embed = make_event_embed(event, message.guild, True)
                         await message.edit(embed=embed)
+                        conn.close()
                         await message.remove_reaction(emoji, user)
                         return
             else:
@@ -699,6 +784,7 @@ async def on_raw_reaction_add(reaction):
                         await user.send(f'You are trying to sign in to Event {event.id}, '
                                         f'but you are not registered yet! '
                                         f'Please register with $register-character on your server')
+                        conn.close()
                         await message.remove_reaction(emoji, user)
                         return
                     chara, _, _ = make_character_from_db(conn, user.id, None)
@@ -715,10 +801,12 @@ async def on_raw_reaction_add(reaction):
                     embed = make_event_embed(event, message.guild, True)
                     await message.edit(embed=embed)
                     # await user.send(f'You are now signed in for {event.id}!')
+                    conn.close()
                     await message.remove_reaction(emoji, user)
                     return
 
             # await user.send(f'You are trying to sign in to Event {event.id}!')
+            conn.close()
             await message.remove_reaction(emoji, user)
             return
         else:
