@@ -1,5 +1,5 @@
 # bot.py
-import datetime
+from datetime import datetime
 import os
 import random
 import traceback
@@ -43,7 +43,7 @@ def ping_string(list_of_ids):
 
 
 def build_countdown_link(timestamp):
-    dt_obj = datetime.datetime.fromtimestamp(timestamp, tz=timezone("GMT"))
+    dt_obj = datetime.fromtimestamp(timestamp, tz=timezone("GMT"))
     link = f"https://www.timeanddate.com/countdown/generic?iso={dt_obj.year}{dt_obj.month:02}{dt_obj.day:02}" \
            f"T{dt_obj.hour:02}{dt_obj.minute:02}{dt_obj.second:02}&p0=0&font=cursive"
     return link
@@ -171,7 +171,7 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
         try:
             d, m, y = date.split("-")
             hour, minute = start_time.split(":")
-            dt_obj = datetime.datetime(int(y), int(m), int(d), int(hour), int(minute))
+            dt_obj = datetime(int(y), int(m), int(d), int(hour), int(minute))
             dt_obj = tz.normalize(tz.localize(dt_obj))
         except Exception:
             await ctx.send(f"Could not parse date and/or time, make sure to format like this: "
@@ -222,7 +222,7 @@ async def edit_event(ctx, ev_id, field, value):
                 await show_event(ctx, event.id)
                 return
             elif field == "date":
-                dt_object = datetime.datetime.fromtimestamp(event.timestamp)
+                dt_object = datetime.fromtimestamp(event.timestamp)
                 try:
                     d, m, y = value.split("-")
                     dt_object = dt_object.replace(day=int(d), month=int(m), year=int(y), tzinfo=timezone("GMT"))
@@ -241,7 +241,7 @@ async def edit_event(ctx, ev_id, field, value):
                 return
 
             elif field == "time":
-                dt_object = datetime.datetime.fromtimestamp(event.timestamp)
+                dt_object = datetime.fromtimestamp(event.timestamp)
                 try:
                     hour, minute = value.split(":")
                     dt_object = dt_object.replace(hour=int(hour), minute=int(minute), tzinfo=timezone("GMT"))
@@ -643,7 +643,7 @@ async def on_raw_reaction_add(reaction):
                       emoji_dict['sign_out'].split(":")[1]]:
         message = await bot.get_guild(reaction.guild_id).get_channel(reaction.channel_id).fetch_message(reaction.message_id)
         # Find corresponding event
-        conn = create_connection(reaction.message.guild)
+        conn = create_connection(reaction.guild_id)
         if conn is not None:
             db_ev = find_events(conn, "message_link", message.jump_url)
             if not db_ev:
