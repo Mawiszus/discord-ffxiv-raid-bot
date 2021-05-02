@@ -12,7 +12,7 @@ With some further testing, we might be able to support a few more servers though
 ## Intended Usage
 
 Once the bot is part of your server, it will listen to any channel it is allowed to listen to.
-What you want to do to not loose sight of your events is make an **event channel**.
+What you want to do to not lose sight of your events is make an **event channel**.
 You can also **make events** and **register characters** to take part in events.
 
 ## Event Channel
@@ -31,6 +31,7 @@ The `<channel>` parameter should be the discord link to a text channel on the se
 You can create an event with `$make-event <name> <date> <start_time> <num_tanks> <num_heals> <num_dps> [user_timezone=GMT]`.
 
 Parameters:
+
 * `<name>` - Name of the event, choose something recognizable so people know what they sign up for.
 * `<date>` - Date of the event, expected format is `dd-mm-yyyy` (sorry americans)
 * `<start_time>` - Starting time of the event, expected format is `hh:mm` 
@@ -43,9 +44,11 @@ Default is GMT/UTC, i. e. Server time.
 ![make-event-example](media/make-event_1.png "make-event-example")
 
 The post below the command will show the event and link to the actual post on the **event channel**.
+
 ![make-event-example2](media/make-event_2.png "make-event-example2")
 
 Now, registered users can sign in, put themselves on the bench, or sign out for the event.
+
 * `sign up` - You sign up as your registered character for the event.
 * `substitute bench` - You sign up as your registered character for the substitute bench. You will have a lower priority
 when building the raid later and only participate if not enough people are signed in and/or you are required due 
@@ -60,6 +63,7 @@ This is especially useful if timezone confusion happens a lot in your server.
 You can edit events you have created with `$edit-event <ev_id> <field> <value>`.
 
 Paramaters:
+
 * `<ev_id>` - The id of the event to be changed. It's the number at the top of the event post.
 * `<field>` - The thing you want to change about the event. Currently supports `name`, `date` and `time` of the event.
 * `<value>` - The new value you want to set for the `<field>`.
@@ -74,6 +78,7 @@ Only the event organizer can close an event.
 
 The bot will send you a dm with the options for the raid given the participants.
 You can close the event with the following options:
+
 * `CANCELLED` - Available if not enough people signed up or no viable raid could be built with the built-in logic. 
   Event will be cancelled and no one will be pinged.
 * `UNDERSIZED` -  Available if not enough people signed up. 
@@ -97,6 +102,7 @@ the number of raids they have participated in and how many times they have been 
 You can register a character with `$register-character <name> <job_list>`.
 
 Parameters:
+
 * `<name>` - Your characters name in the database and in events. Highly recommend putting a recognizable character
 name here, but you are free to choose a nickname. If you want a space in your name you need to use quotation marks: 
   `"Firstname Lastname"`.
