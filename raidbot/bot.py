@@ -220,7 +220,7 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
 
         event_tup = (name, int(dt_obj.timestamp()), None, None, None,
                      None, f"{num_tanks},{num_heals},{num_dps}",
-                     int(ctx.message.author.mention[2:-1]), None, "RECRUITING")
+                     int(ctx.message.author.id), None, "RECRUITING")
         ev_id = create_event(conn, event_tup)
 
         try:
