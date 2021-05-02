@@ -345,7 +345,8 @@ async def close_event(ctx, ev_id):
             # Check if we have an event channel
             db_eventchannel = get_server_info(conn, "event_channel")
             if db_eventchannel:
-                channel = db_eventchannel[0][2]
+                channel_tag = db_eventchannel[0][2]
+                channel = ctx.guild.get_channel(int(channel_tag[2:-1]))
             else:
                 channel = ctx
             if event.creator_id != ctx.message.author.id:
