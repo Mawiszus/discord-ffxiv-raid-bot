@@ -606,7 +606,7 @@ async def close_event(ctx, ev_id):
         return
 
 
-@bot.command(name='register-character', help='Registers a character given parameters: name ("Firstname Lastname"), '
+@bot.command(name='register-character', help='Registers a character given parameters: name ("Firstname Lastname") '
                                              'job_list (formatted like "JOB,JOB,JOB", given in order of your priority)')
 async def register_character(ctx, name, job_list):
     conn = create_connection(ctx.guild.id)
@@ -629,7 +629,7 @@ async def register_character(ctx, name, job_list):
         except Exception:
             conn.close()
             await ctx.send('Could not parse name and/or job list. '
-                           'Format like this: "Firstname Lastname", "JOB,JOB,JOB"')
+                           'Format like this: `$register-character "Firstname Lastname" "JOB,JOB,JOB"`')
             return
 
     else:
