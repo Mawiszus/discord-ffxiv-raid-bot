@@ -417,7 +417,7 @@ async def close_event(ctx, ev_id):
                         signed_str, _ = event.signed_in_and_benched_as_strs()
                         if signed_str:
                             new_emb.add_field(name="**Participants**", value=signed_str, inline=False)
-                        await channel.send(embed=new_emb)
+                        await channel.send(ping_string(event.participant_ids), embed=new_emb)
                     elif msg.content == "esc":
                         await ctx.message.author.send(f'Stopping $close-event dialogue.')
                 conn.close()
