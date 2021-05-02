@@ -195,8 +195,11 @@ async def show_character(ctx, discord_id):
 
 
 @bot.command(name='make-event', help='creates an event given parameters: '
-                                     'name, date (format d-m-y), time (format HH:MM), '
-                                     'num_Tanks, num_Heals, num_DPS, timezone (optional, default GMT)')
+                                     'name date (format d-m-y) time (format HH:MM) '
+                                     'num_Tanks num_Heals num_DPS timezone (optional, default GMT)\n'
+                                     '**Note:** Parameters are separated by spaces, so if you want a space in'
+                                     'for eaxmple <name>, you need to put name in quotation marks like this:'
+                                     ' "Event Name"')
 async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps, user_timezone="GMT"):
     conn = create_connection(ctx.guild.id)
     if conn is not None:
@@ -252,7 +255,7 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
 
 
 @bot.command(name='edit-event', help='Edits the given field of an event given its id. Only the event creator can edit. '
-                                     'Field can be either name, date, time. Time will always be assumed GMT.')
+                                     'Field can be either name, date, or time. Time will always be assumed GMT.')
 async def edit_event(ctx, ev_id, field, value):
     conn = create_connection(ctx.guild.id)
     if conn is not None:
@@ -323,7 +326,7 @@ async def edit_event(ctx, ev_id, field, value):
             else:
                 conn.close()
                 await ctx.send(f'{field} is not an editable field.\n'
-                               f'Editable fields are "name", "date", "time"')
+                               f'Editable fields are "name", "date", or "time"')
                 return
         else:
             conn.close()
@@ -607,7 +610,10 @@ async def close_event(ctx, ev_id):
 
 
 @bot.command(name='register-character', help='Registers a character given parameters: name ("Firstname Lastname") '
-                                             'job_list (formatted like "JOB,JOB,JOB", given in order of your priority)')
+                                             'job_list (formatted like "JOB,JOB,JOB", given in order of your priority)\n'
+                                             '**Note:** Parameters are separated by spaces, so if you want a space '
+                                             'in your name, you need to put name in quotation marks like this:'
+                                             ' "Firstname Lastname"')
 async def register_character(ctx, name, job_list):
     conn = create_connection(ctx.guild.id)
     if conn is not None:
