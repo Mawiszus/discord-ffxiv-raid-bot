@@ -207,8 +207,8 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
             tz = timezone(user_timezone)
         except Exception:
             conn.close()
-            embed = discord.Embed(title=f"A link to all possible timezones can be found [here]"
-                                        f"(https://gist.github.com/heyalexej/8bf688fd67d7199be4a1682b3eec7568)",
+            tz_link = "https://gist.github.com/heyalexej/8bf688fd67d7199be4a1682b3eec7568"
+            embed = discord.Embed(description=f"A link to all possible timezones can be found [here]({tz_link})",
                                   color=discord.Color.dark_gold())
             await ctx.send(f"Unknown timezone {user_timezone}, use format like 'Europe/Amsterdam'", embed=embed)
             return
