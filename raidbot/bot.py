@@ -268,6 +268,7 @@ async def edit_event(ctx, ev_id, field, value):
                 link = event.message_link.split('/')
                 message = await bot.get_guild(int(link[-3])).get_channel(int(link[-2])).fetch_message(
                     int(link[-1]))
+                event.name = value
                 embed = make_event_embed(event, message.guild, True if event.state == "RECRUITING" else False)
                 await message.edit(embed=embed)
                 await ctx.send("Event name updated.")
@@ -284,10 +285,12 @@ async def edit_event(ctx, ev_id, field, value):
                     await ctx.send(f"Could not parse date, make sure to format like this: "
                                    f"dd-mm-yyyy")
                     return
-                update_event(conn, "timestamp", int(dt_object.timestamp()), event.id)
+                timestamp = int(dt_object.timestamp())
+                update_event(conn, "timestamp", timestamp, event.id)
                 link = event.message_link.split('/')
                 message = await bot.get_guild(int(link[-3])).get_channel(int(link[-2])).fetch_message(
                     int(link[-1]))
+                event.timestamp = timestamp
                 embed = make_event_embed(event, message.guild, True if event.state == "RECRUITING" else False)
                 await message.edit(embed=embed)
                 await ctx.send("Event date updated.")
@@ -305,10 +308,12 @@ async def edit_event(ctx, ev_id, field, value):
                     await ctx.send(f"Could not parse time, make sure to format like this: "
                                    f"hh:mm (in 24 hour format)")
                     return
-                update_event(conn, "timestamp", int(dt_object.timestamp()), event.id)
+                timestamp = int(dt_object.timestamp())
+                update_event(conn, "timestamp", timestamp, event.id)
                 link = event.message_link.split('/')
                 message = await bot.get_guild(int(link[-3])).get_channel(int(link[-2])).fetch_message(
                     int(link[-1]))
+                event.timestamp = timestamp
                 embed = make_event_embed(event, message.guild, True if event.state == "RECRUITING" else False)
                 await message.edit(embed=embed)
                 await ctx.send("Event time updated.")
