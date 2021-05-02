@@ -177,8 +177,8 @@ async def show_event(ctx, event_id):
         await ctx.send('Could not connect to database.')
 
 
-@bot.command(name='show-player', help='Shows characters registered with the given Discord ID')
-async def show_player(ctx, discord_id):
+@bot.command(name='show-character', help='Shows characters registered with the given Discord ID')
+async def show_character(ctx, discord_id):
     num_id = int(discord_id[3:-1])
     conn = create_connection(ctx.guild.id)
     if conn is not None:
