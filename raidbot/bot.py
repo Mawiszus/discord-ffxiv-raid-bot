@@ -342,6 +342,12 @@ async def close_event(ctx, ev_id):
         db_ev = get_event(conn, ev_id)
         if db_ev:
             event = make_event_from_db(conn, ev_id)
+            # Check if we have an event channel
+            db_eventchannel = get_server_info(conn, "event_channel")
+            if db_eventchannel:
+                channel = db_eventchannel[0][2]
+            else:
+                channel = ctx
             if event.creator_id != ctx.message.author.id:
                 conn.close()
                 await ctx.send(f'You are not the author for this event. Only the author can close events.')
@@ -384,7 +390,7 @@ async def close_event(ctx, ev_id):
                         new_emb = discord.Embed(title=f"**Event {event.id} - {event.name}**",
                                                 description=f"Has been **CANCELLED**",
                                                 color=discord.Color.dark_gold())
-                        await ctx.send(embed=new_emb)
+                        await channel.send(embed=new_emb)
                     elif msg.content == "2":
                         await ctx.message.author.send(f'you have decided to run the event UNDERSIZED.')
                         link = event.message_link.split('/')
@@ -410,7 +416,7 @@ async def close_event(ctx, ev_id):
                         signed_str, _ = event.signed_in_and_benched_as_strs()
                         if signed_str:
                             new_emb.add_field(name="**Participants**", value=signed_str, inline=False)
-                        await ctx.send(embed=new_emb)
+                        await channel.send(embed=new_emb)
                     elif msg.content == "esc":
                         await ctx.message.author.send(f'Stopping $close-event dialogue.')
                 conn.close()
@@ -467,7 +473,7 @@ async def close_event(ctx, ev_id):
                             new_emb = discord.Embed(title=f"**Event {event.id} - {event.name}**",
                                                     description=f"Has been **CANCELLED**",
                                                     color=discord.Color.dark_gold())
-                            await ctx.send(embed=new_emb)
+                            await channel.send(embed=new_emb)
                         elif msg.content == "2":
                             await ctx.message.author.send(f'you have decided to run the event MANUAL.')
                             link = event.message_link.split('/')
@@ -491,7 +497,7 @@ async def close_event(ctx, ev_id):
                                 new_emb.add_field(name="**Participants**", value=signed_str, inline=False)
                             if bench_str:
                                 new_emb.add_field(name="**On the bench**", value=bench_str, inline=False)
-                            await ctx.send(embed=new_emb)
+                            await channel.send(embed=new_emb)
                         elif msg.content == "esc":
                             await ctx.message.author.send(f'Stopping $close-event dialogue.')
                     conn.close()
@@ -585,7 +591,7 @@ async def close_event(ctx, ev_id):
                         new_emb.add_field(name="**Participants**", value=signed_str, inline=False)
                     if event.jobs:
                         new_emb.add_field(name="**Jobs**", value=job_emoji_str(event.jobs), inline=False)
-                    await ctx.send(ping_string(event.participant_ids), embed=new_emb)
+                    await channel.send(ping_string(event.participant_ids), embed=new_emb)
                     conn.close()
                     await ctx.message.author.send(f'You have set the event and participants.')
                     return
