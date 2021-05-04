@@ -516,7 +516,7 @@ async def close_event(ctx, ev_id):
                     curr_str = ""
                     for player in group:
                         job = comp[group.index(player)]
-                        curr_str += f"{player.character_name} as {emoji_dict[job]}, "
+                        curr_str += f"{emoji_dict[job]} {player.character_name}, "
                     combo_str += f"`{i}` - " + curr_str[:-2] + "\n"
 
                 combo_str += "`rnd` -  choose one of the above at random."
@@ -593,12 +593,16 @@ async def close_event(ctx, ev_id):
                     new_emb = discord.Embed(title=f"**Event {event.id} - {event.name}**",
                                             description=f"Recruitment has ended.",
                                             color=discord.Color.dark_gold())
-                    signed_str, bench_str = event.signed_in_and_benched_as_strs()
-                    if signed_str:
-                        new_emb.add_field(name="**Participants**", value=signed_str, inline=False)
-                    if event.jobs:
-                        new_emb.add_field(name="**Jobs**", value=job_emoji_str(event.jobs), inline=False)
-                    await channel.send(ping_string(event.participant_ids), embed=new_emb)
+                    # Get participants with their jobs
+                    part_str = ""
+                    for j, p_id in enumerate(event.participant_ids):
+                        if event.is_bench[j] == 0:
+                            part_str += f"{emoji_dict[event.jobs[j]]} {event.participant_names[j]}\n"
+                    new_emb.add_field(name="**Participants**", value=part_str, inline=False)
+                    # if event.jobs:
+                    #     new_emb.add_field(name="**Jobs**", value=job_emoji_str(event.jobs), inline=False)
+                    non_benched_ids = [p_id for j, p_id in enumerate(event.participant_ids) if not event.is_bench[j]]
+                    await channel.send(ping_string(non_benched_ids), embed=new_emb)
                     conn.close()
                     await ctx.message.author.send(f'You have set the event and participants.')
                     return
