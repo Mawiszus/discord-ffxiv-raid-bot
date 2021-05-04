@@ -43,7 +43,7 @@ def ping_string(list_of_ids):
 
 
 def build_countdown_link(timestamp):
-    dt_obj = datetime.fromtimestamp(timestamp, tz=timezone("GMT"))
+    dt_obj = datetime.fromtimestamp(timestamp, tz=timezone("UTC"))
     link = f"https://www.timeanddate.com/countdown/generic?iso={dt_obj.year}{dt_obj.month:02}{dt_obj.day:02}" \
            f"T{dt_obj.hour:02}{dt_obj.minute:02}{dt_obj.second:02}&p0=0&font=cursive"
     return link
@@ -196,11 +196,11 @@ async def show_character(ctx, discord_id):
 
 @bot.command(name='make-event', help='creates an event given parameters: '
                                      'name date (format d-m-y) time (format HH:MM) '
-                                     'num_Tanks num_Heals num_DPS timezone (optional, default GMT)\n'
+                                     'num_Tanks num_Heals num_DPS timezone (optional, default UTC)\n'
                                      '**Note:** Parameters are separated by spaces, so if you want a space in'
                                      'for eaxmple <name>, you need to put name in quotation marks like this:'
                                      ' "Event Name"')
-async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps, user_timezone="GMT"):
+async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps, user_timezone="UTC"):
     conn = create_connection(ctx.guild.id)
     if conn is not None:
         try:
@@ -258,7 +258,8 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
 
 
 @bot.command(name='edit-event', help='Edits the given field of an event given its id. Only the event creator can edit. '
-                                     'Field can be either name, date, or time. Time will always be assumed GMT.')
+                                     'Field can be either name, date, or time. Time will always be assumed UTC '
+                                     'which is Servertime.')
 async def edit_event(ctx, ev_id, field, value):
     conn = create_connection(ctx.guild.id)
     if conn is not None:
@@ -285,7 +286,7 @@ async def edit_event(ctx, ev_id, field, value):
                 dt_object = datetime.fromtimestamp(event.timestamp)
                 try:
                     d, m, y = value.split("-")
-                    dt_object = dt_object.replace(day=int(d), month=int(m), year=int(y), tzinfo=timezone("GMT"))
+                    dt_object = dt_object.replace(day=int(d), month=int(m), year=int(y), tzinfo=timezone("UTC"))
                 except Exception:
                     conn.close()
                     await ctx.send(f"Could not parse date, make sure to format like this: "
@@ -308,7 +309,7 @@ async def edit_event(ctx, ev_id, field, value):
                 dt_object = datetime.fromtimestamp(event.timestamp)
                 try:
                     hour, minute = value.split(":")
-                    dt_object = dt_object.replace(hour=int(hour), minute=int(minute), tzinfo=timezone("GMT"))
+                    dt_object = dt_object.replace(hour=int(hour), minute=int(minute), tzinfo=timezone("UTC"))
                 except Exception:
                     conn.close()
                     await ctx.send(f"Could not parse time, make sure to format like this: "

@@ -28,7 +28,7 @@ The `<channel>` parameter should be the discord link to a text channel on the se
 ## Events
 ### Make Events:
 
-You can create an event with `$make-event <name> <date> <start_time> <num_tanks> <num_heals> <num_dps> [user_timezone=GMT]`.
+You can create an event with `$make-event <name> <date> <start_time> <num_tanks> <num_heals> <num_dps> [user_timezone=UTC]`.
 
 Parameters:
 
@@ -38,7 +38,7 @@ Parameters:
 * `<num_tanks>` - Number of tanks required for this event (for standard 8 man raids that would be 2)
 * `<num_heals>` - Number of healers required for this event (for standard 8 man raids that would be 2)
 * `<num_dps>` - Number of dps required for this event (for standard 8 man raids that would be 4)
-* `[user_timezone=GMT]` - Optional parameter to interpret the date and time parameter with the given timezone. 
+* `[user_timezone=UTC]` - Optional parameter to interpret the date and time parameter with the given timezone. 
 Default is GMT/UTC, i. e. Server time.
 
 ![make-event-example](media/make-event_1.png "make-event-example")
@@ -112,7 +112,7 @@ list is the one you want to play the most, and the last job is the one you want 
   
 ![register-character-example](media/register-character.png "register-character-example")
 
-If you want to register a different characte, you can delete your character with `$delete-character`, but 
+If you want to register a different character, you can delete your character with `$delete-character`, but 
 **beware this will delete your statistics!**
 
 ### Add/Remove Jobs:
