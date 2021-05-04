@@ -258,9 +258,9 @@ async def make_event(ctx, name, date, start_time, num_tanks, num_heals, num_dps,
 
 
 @bot.command(name='edit-event', help='Edits the given field of an event given its id. Only the event creator can edit. '
-                                     'Field can be either name, date, or time. Time will always be assumed UTC '
-                                     'which is Servertime.')
-async def edit_event(ctx, ev_id, field, value):
+                                     'Field can be either name, date, or time. The user_timezone parameter will only '
+                                     'matter if the field is "time" and is otherwise ignored.')
+async def edit_event(ctx, ev_id, field, value, user_timezone="UTC"):
     conn = create_connection(ctx.guild.id)
     if conn is not None:
         db_ev = get_event(conn, ev_id)
@@ -308,8 +308,18 @@ async def edit_event(ctx, ev_id, field, value):
             elif field == "time":
                 dt_object = datetime.fromtimestamp(event.timestamp)
                 try:
+                    tz = timezone(user_timezone)
+                except Exception:
+                    conn.close()
+                    tz_link = "https://gist.github.com/heyalexej/8bf688fd67d7199be4a1682b3eec7568"
+                    embed = discord.Embed(
+                        description=f"A link to all possible timezones can be found [here]({tz_link})",
+                        color=discord.Color.dark_gold())
+                    await ctx.send(f"Unknown timezone {user_timezone}, use format like 'Europe/Amsterdam'", embed=embed)
+                    return
+                try:
                     hour, minute = value.split(":")
-                    dt_object = dt_object.replace(hour=int(hour), minute=int(minute))
+                    dt_object = dt_object.replace(hour=int(hour), minute=int(minute), tzinfo=timezone(tz))
                 except Exception:
                     conn.close()
                     await ctx.send(f"Could not parse time, make sure to format like this: "

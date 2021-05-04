@@ -67,6 +67,8 @@ Paramaters:
 * `<ev_id>` - The id of the event to be changed. It's the number at the top of the event post.
 * `<field>` - The thing you want to change about the event. Currently supports `name`, `date` and `time` of the event.
 * `<value>` - The new value you want to set for the `<field>`.
+* `[user_timezone=UTC]` - Optional parameter to interpret the time parameter with the given timezone. 
+Default is GMT/UTC, i. e. Server time. Is ignored for other field types.
 
 ![edit-event-example](media/edit-event.png "edit-event-example")
 
