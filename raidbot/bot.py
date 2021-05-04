@@ -286,7 +286,7 @@ async def edit_event(ctx, ev_id, field, value):
                 dt_object = datetime.fromtimestamp(event.timestamp)
                 try:
                     d, m, y = value.split("-")
-                    dt_object = dt_object.replace(day=int(d), month=int(m), year=int(y), tzinfo=timezone("UTC"))
+                    dt_object = dt_object.replace(day=int(d), month=int(m), year=int(y))
                 except Exception:
                     conn.close()
                     await ctx.send(f"Could not parse date, make sure to format like this: "
@@ -309,7 +309,7 @@ async def edit_event(ctx, ev_id, field, value):
                 dt_object = datetime.fromtimestamp(event.timestamp)
                 try:
                     hour, minute = value.split(":")
-                    dt_object = dt_object.replace(hour=int(hour), minute=int(minute), tzinfo=timezone("UTC"))
+                    dt_object = dt_object.replace(hour=int(hour), minute=int(minute))
                 except Exception:
                     conn.close()
                     await ctx.send(f"Could not parse time, make sure to format like this: "
