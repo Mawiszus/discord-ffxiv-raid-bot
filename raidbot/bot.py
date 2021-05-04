@@ -319,7 +319,7 @@ async def edit_event(ctx, ev_id, field, value, user_timezone="UTC"):
                     return
                 try:
                     hour, minute = value.split(":")
-                    dt_object = dt_object.replace(hour=int(hour), minute=int(minute), tzinfo=timezone(tz))
+                    dt_object = dt_object.replace(hour=int(hour), minute=int(minute), tzinfo=tz)
                 except Exception:
                     conn.close()
                     await ctx.send(f"Could not parse time, make sure to format like this: "
