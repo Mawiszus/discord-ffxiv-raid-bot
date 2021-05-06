@@ -135,6 +135,12 @@ Parameter `<discord_id>` is supposed to be a ping to that discord user like `@ni
 
 ![show-character-example](media/show-character.png "show-character-example")
 
+### Change Name:
+
+You can change the Nickname associated with your character with `$change-character-name <name>`, where `<name>` is the
+new Name you want to give your Character. Remember to use quotation marks if you want to use spaces in you name, like
+`"Firstname Lastname"`.
+
 ## Bonus Commands:
 
 You can use `$help` to display the commands known to the bot with a short description.

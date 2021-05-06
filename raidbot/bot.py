@@ -766,7 +766,7 @@ async def change_name(ctx, name):
             return
         else:
             conn.close()
-            await ctx.send(f'There is no character registered by <@{disc_id}> to remove jobs from.')
+            await ctx.send(f'There is no character registered by <@{disc_id}>.')
             return
     else:
         await ctx.send('Could not connect to database. Need connection to edit characters.')
