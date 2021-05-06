@@ -749,6 +749,30 @@ async def remove_job(ctx, job):
         return
 
 
+@bot.command(name='change-character-name', help="change the name attached to the character"
+                                                " registered with your discord id.")
+async def change_name(ctx, name):
+    conn = create_connection(ctx.guild.id)
+    if conn is not None:
+        disc_id = ctx.message.author.id
+        db_chara = get_player_by_id(conn, disc_id)
+        if db_chara:
+            chara, date, num_raids = make_character_from_db(conn, disc_id, None)
+            update_player(conn, "character_name", name, disc_id, chara.character_name)
+            chara.character_name = name
+            embed = make_character_embed(chara, date, num_raids)
+            conn.close()
+            await ctx.send(f"<@{chara.discord_id}>'s character:", embed=embed)
+            return
+        else:
+            conn.close()
+            await ctx.send(f'There is no character registered by <@{disc_id}> to remove jobs from.')
+            return
+    else:
+        await ctx.send('Could not connect to database. Need connection to edit characters.')
+        return
+
+
 @bot.event
 async def on_raw_reaction_add(reaction):
     emoji = reaction.emoji
