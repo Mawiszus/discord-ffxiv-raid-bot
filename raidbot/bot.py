@@ -353,8 +353,16 @@ async def edit_event(ctx, ev_id, field, value, user_timezone="UTC"):
 
 
 @bot.command(name='close-event', help='closes recruitment for an event. Will ask you to decide on the composition'
-                                      'via DM. Needs the event ID.')
-async def close_event(ctx, ev_id):
+                                      'via DM. Needs the event ID.\nOptional: Turn off settings the bot uses to help'
+                                      'narrow down the search for a *good* raid composition.\nSettings are:\n'
+                                      '`maximize_diverse_dps` - if True, the bot will prefer compositions with '
+                                      'diverse DPS, i.e. at least one of each type (Melee, Ranged, Caster).\n'
+                                      '`use_benched_counter` - if True, the number of times a character was '
+                                      '*involuntarily benched* will be counted in his favor.\n'
+                                      '`no_double_jobs` - if True, the bot will try to avoid double jobs in the '
+                                      'provided compositions. They will still be displayed '
+                                      'if they are the only option.\n')
+async def close_event(ctx, ev_id, maximize_diverse_dps=True, use_benched_counter=True, no_double_jobs=True):
     conn = create_connection(ctx.guild.id)
     if conn is not None:
         db_ev = get_event(conn, ev_id)
@@ -454,7 +462,10 @@ async def close_event(ctx, ev_id):
 
                 await ctx.message.author.send(f'Building a group for event {event.id} ...')
                 # Get X best raids
-                best_raids = make_raid(participants, event.role_numbers[0], event.role_numbers[1], event.role_numbers[2])
+                best_raids = make_raid(participants, event.role_numbers[0], event.role_numbers[1], event.role_numbers[2],
+                                       no_double_jobs=no_double_jobs,
+                                       maximize_diverse_dps=maximize_diverse_dps,
+                                       use_benched_counter=use_benched_counter)
                 if not best_raids:
                     # No viable combination was found
                     await ctx.message.author.send(f"I could not create a viable group given the participants' jobs and "
@@ -531,7 +542,8 @@ async def close_event(ctx, ev_id):
                         curr_str += f"{emoji_dict[job]} {player.character_name}, "
                     combo_str += f"`{i}` - " + curr_str[:-2] + "\n"
 
-                combo_str += "`rnd` -  choose one of the above at random."
+                combo_str += "`rnd` - choose one of the above at random\n" \
+                             "`esc` - stop closing dialogue"
 
                 new_emb = discord.Embed(title=f"Best Combinations:",
                                         description=combo_str,
@@ -541,7 +553,7 @@ async def close_event(ctx, ev_id):
                 def check(m):
                     return ctx.message.author == m.author \
                            and not m.guild \
-                           and (m.content == "rnd" or int(m.content) in range(len(best_raids)))
+                           and (m.content in ["rnd", "esc"] or int(m.content) in range(len(best_raids)))
                 # await response
                 try:
                     msg = await bot.wait_for('message', check=check, timeout=3600.0)
@@ -556,7 +568,11 @@ async def close_event(ctx, ev_id):
                                                   f'restart the closing process.')
                     return
                 else:
-                    if msg.content == "rnd":
+                    if msg.content == "esc":
+                        await ctx.message.author.send(f'Stopping $close-event dialogue.')
+                        conn.close()
+                        return
+                    elif msg.content == "rnd":
                         raidnum = random.randint(0, len(best_raids)-1)
                     else:
                         raidnum = int(msg.content)
@@ -581,15 +597,15 @@ async def close_event(ctx, ev_id):
                             event.jobs.append(None)
                     # Sort lists according to FF sorting
                     job_inds = [JOBS.index(j) if j else float('Inf') for j in event.jobs]
-                    new_inds = [i[0] for i in sorted(enumerate(job_inds), key=lambda x:x[1])]
+                    new_inds = [j[0] for j in sorted(enumerate(job_inds), key=lambda x:x[1])]
 
-                    event.participant_ids = [event.participant_ids[i] for i in new_inds]
+                    event.participant_ids = [event.participant_ids[j] for j in new_inds]
                     update_event(conn, "participant_ids", col_str(event.participant_ids), event.id)
-                    event.participant_names = [event.participant_names[i] for i in new_inds]
+                    event.participant_names = [event.participant_names[j] for j in new_inds]
                     update_event(conn, "participant_names", col_str(event.participant_names), event.id)
-                    event.jobs = [event.jobs[i] for i in new_inds]
+                    event.jobs = [event.jobs[j] for j in new_inds]
                     update_event(conn, "jobs", col_str(event.jobs), event.id)
-                    event.is_bench = [event.is_bench[i] for i in new_inds]
+                    event.is_bench = [event.is_bench[j] for j in new_inds]
                     update_event(conn, "is_bench", col_str(event.is_bench), event.id)
 
                     # Edit Event post and make message

@@ -74,11 +74,25 @@ Default is GMT/UTC, i. e. Server time. Is ignored for other field types.
 
 ### Close Events:
 
-Once you are done recruiting for an event you can close it with `$close-event <ev_id>`. Parameter `<ev-id>` is the 
+Once you are done recruiting for an event you can close it with `$close-event <ev_id> [maximize_diverse_dps=True] 
+[use_benched_counter=True] [no_double_jobs=True]`. Parameter `<ev-id>` is the 
 event id as shown on the top of the event post.
 Only the event organizer can close an event.
 
 The bot will send you a dm with the options for the raid given the participants.
+`[maximize_diverse_dps=True] [use_benched_counter=True] [no_double_jobs=True]` are options the bot uses to reduce the
+number of shown options in a smart way. If you want to be shown more options, you can set these to False.
+
+* `[maximize_diverse_dps=True]` - if True, the bot will prefer compositions with diverse DPS, i.e. at least one of each type 
+(Melee, Ranged, Caster).
+* `[use_benched_counter=True]` - if True, the number of times a character was 
+*involuntarily benched* will be counted in his favor, so he will be a preferred member.
+* `[no_double_jobs=True]` - if True, the bot will try to avoid double jobs in the 
+provided compositions. They will still be displayed if they are the only option.
+  
+**Important:** The Order of these matters! If you want to change only one of the latter options, you need to set those
+before it, too. For example `$close-event 1 True True False` for only removing the double job setting.
+
 You can close the event with the following options:
 
 * `CANCELLED` - Available if not enough people signed up or no viable raid could be built with the built-in logic. 
@@ -88,6 +102,8 @@ You can close the event with the following options:
 * `MANUAL` - Available if no viable raid could be built with the built-in logic. Nobody will be pinged, all
 messaging and recruiting has to be done manually.
 * `COMPLETE` - Enough people are available, and you have chosen a composition. The chosen people will be pinged.
+
+**Only `COMPLETE` events count towards the number of raids, and the number of involuntary benches for the particpants.**
 
 ### Show events:
 

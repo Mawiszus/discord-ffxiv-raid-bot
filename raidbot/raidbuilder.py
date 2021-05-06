@@ -75,7 +75,8 @@ def make_character_from_db(conn, discord_id, name):
         raise ValueError(f"No Character with id {discord_id} and name {name} found in db.")
 
 
-def calc_composition_score(combination: tuple[Character], picked_jobs: tuple, n_tanks: int, n_healers: int, n_dps: int):
+def calc_composition_score(combination: tuple[Character], picked_jobs: tuple, n_tanks: int, n_healers: int, n_dps: int,
+                           no_double_jobs=True, maximize_diverse_dps=True, use_benched_counter=True):
     # First checks - do we have the correct number of roles? if not, don't bother
     if sum(t in picked_jobs for t in TANKS) != n_tanks:
         score = 0
@@ -90,7 +91,7 @@ def calc_composition_score(combination: tuple[Character], picked_jobs: tuple, n_
             member_score = len(JOBS) - idx  # First job in list gets highest priority and so on
             if member.benched:  # member prefers to be on bench so we give him a lower priority
                 member_score -= 8  # need to tweak weight?
-            else:
+            elif use_benched_counter:
                 member_score += member.involuntary_benches  # add times benched to score
             job_prios.append(member_score)
 
@@ -99,32 +100,34 @@ def calc_composition_score(combination: tuple[Character], picked_jobs: tuple, n_
         # Extra score boosts/detractors
 
         # Do we have duplicates?
-        if len(picked_jobs) != len(set(picked_jobs)):
-            score -= 10  # Weight here might need to be adjusted
+        if no_double_jobs and len(picked_jobs) != len(set(picked_jobs)):
+            score -= 8  # Weight here might need to be adjusted
 
         # Group DPS comp
-        if sum(d in picked_jobs for d in MELEES) > 0:
-            if sum(d in picked_jobs for d in RANGED) > 0:
-                if sum(d in picked_jobs for d in CASTERS) > 0:
-                    # We have at least one of each type of DPS
-                    score += 5
-                else:
-                    # We have at least two different types of DPS
-                    score += 3
+        if maximize_diverse_dps:
+            if sum(d in picked_jobs for d in MELEES) > 0:
+                if sum(d in picked_jobs for d in RANGED) > 0:
+                    if sum(d in picked_jobs for d in CASTERS) > 0:
+                        # We have at least one of each type of DPS
+                        score += 4
+                    else:
+                        # We have at least two different types of DPS
+                        score += 2
 
-            elif sum(d in picked_jobs for d in CASTERS) > 0:
+                elif sum(d in picked_jobs for d in CASTERS) > 0:
+                    # We have at least two different types of DPS
+                    score += 2
+            elif sum(d in picked_jobs for d in CASTERS) > 0 and sum(d in picked_jobs for d in RANGED) > 0:
                 # We have at least two different types of DPS
-                score += 3
-        elif sum(d in picked_jobs for d in CASTERS) > 0 and sum(d in picked_jobs for d in RANGED) > 0:
-            # We have at least two different types of DPS
-            score += 3
+                score += 2
 
         # TODO: add number of participated raids into calculation
 
     return score
 
 
-def make_raid(characters: list[Character], n_tanks: int, n_healers: int, n_dps: int):
+def make_raid(characters: list[Character], n_tanks: int, n_healers: int, n_dps: int,
+              no_double_jobs=True, maximize_diverse_dps=True, use_benched_counter=True):
     """Given a list of Characters, this will form the most desirable possible raid composition"""
     n_raiders = n_tanks + n_healers + n_dps
 
@@ -146,7 +149,8 @@ def make_raid(characters: list[Character], n_tanks: int, n_healers: int, n_dps: 
 
         # Iterate over comps and get scores
         for comp in comps:
-            score = calc_composition_score(group, comp, n_tanks, n_healers, n_dps)
+            score = calc_composition_score(group, comp, n_tanks, n_healers, n_dps,
+                                           no_double_jobs, maximize_diverse_dps, use_benched_counter)
             if score > 0:  # only append viable combinations
                 groups_comps_and_scores.append([group, comp, score])
 
