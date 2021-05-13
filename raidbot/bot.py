@@ -545,10 +545,32 @@ async def close_event(ctx, ev_id, maximize_diverse_dps=True, use_benched_counter
                 combo_str += "`rnd` - choose one of the above at random\n" \
                              "`esc` - stop closing dialogue"
 
-                new_emb = discord.Embed(title=f"Best Combinations:",
-                                        description=combo_str,
-                                        color=discord.Color.dark_gold())
-                await ctx.message.author.send("Please choose a composition out of the following:", embed=new_emb)
+                if len(combo_str) >= 2047:
+                    # Embed description max length is 2048
+                    lines = combo_str.split("\n")
+                    msg = ""
+                    while len(lines) > 0:
+                        curr_line = lines.pop(0)
+                        msg += curr_line + "\n"
+                        if (len(msg) + len(lines[0]) + 1) >= 2048:
+                            new_emb = discord.Embed(title=f"Best Combinations:",
+                                                    description=msg,
+                                                    color=discord.Color.dark_gold())
+                            await ctx.message.author.send("Please choose a composition out of the following:",
+                                                          embed=new_emb)
+                            msg = ""
+
+                    new_emb = discord.Embed(title=f"Best Combinations:",
+                                            description=msg,
+                                            color=discord.Color.dark_gold())
+                    await ctx.message.author.send("Please choose a composition out of the following:",
+                                                  embed=new_emb)
+
+                else:
+                    new_emb = discord.Embed(title=f"Best Combinations:",
+                                            description=combo_str,
+                                            color=discord.Color.dark_gold())
+                    await ctx.message.author.send("Please choose a composition out of the following:", embed=new_emb)
 
                 def check(m):
                     return ctx.message.author == m.author \
