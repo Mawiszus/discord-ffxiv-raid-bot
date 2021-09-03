@@ -11,6 +11,7 @@ CASTERS = ["BLM", "SMN", "RDM"]
 LIMITED = ["BLU"]
 DPS = [*MELEES, *RANGED, *CASTERS]
 JOBS = [*TANKS, *HEALERS, *DPS]
+CLASSES = ["MRD", "GLD", "CNJ", "ACN", "PGL", "LNC", "ROG", "ARC", "THM"]
 
 
 def string_from_list(lt):
@@ -48,6 +49,8 @@ class Character:
                 self.jobs.append(job)
             elif job in self.jobs:
                 raise SyntaxError(f"{job} already registered")
+            elif job in CLASSES:
+                raise SyntaxError(f"{job} is a class")
             else:
                 raise SyntaxError(f"{job} is not a valid job")
 

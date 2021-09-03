@@ -671,7 +671,7 @@ async def close_event(ctx, ev_id, maximize_diverse_dps=True, use_benched_counter
                                              '**Note:** Parameters are separated by spaces, so if you want a space '
                                              'in your name, you need to put name in quotation marks like this:'
                                              ' "Firstname Lastname"\n'
-                                             "Example:\n$register-character \"Y'shtola Rhul\" \"BLM,CNJ\"")
+                                             "Example:\n$register-character \"Y'shtola Rhul\" \"THM,CNJ\"")
 async def register_character(ctx, name, job_list: str):
     conn = create_connection(ctx.guild.id)
     job_list = job_list.upper()
@@ -691,8 +691,12 @@ async def register_character(ctx, name, job_list: str):
             create_player(conn, player)
             embed = make_character_embed(chara, player[3], player[4])
             await ctx.send(f"<@{chara.discord_id}>'s character:", embed=embed)
-        except Exception:
+        except Exception as e:
             conn.close()
+            if e.__str__().__contains__("class"):
+                await ctx.send('Please be a responsible Warrior of Light and equip your job/soul stone.')
+                return
+
             await ctx.send('Could not parse name and/or job list. '
                            'Format like this: `$register-character "Firstname Lastname" "JOB,JOB,JOB"`')
             return
