@@ -670,9 +670,11 @@ async def close_event(ctx, ev_id, maximize_diverse_dps=True, use_benched_counter
                                              'job_list (formatted like "JOB,JOB,JOB", given in order of your priority)\n'
                                              '**Note:** Parameters are separated by spaces, so if you want a space '
                                              'in your name, you need to put name in quotation marks like this:'
-                                             ' "Firstname Lastname"')
-async def register_character(ctx, name, job_list):
+                                             ' "Firstname Lastname"\n'
+                                             "Example:\n$register-character \"Y'shtola Rhul\" \"BLM,CNJ\"")
+async def register_character(ctx, name, job_list: str):
     conn = create_connection(ctx.guild.id)
+    job_list = job_list.upper()
     if conn is not None:
         disc_id = ctx.message.author.id
         db_chara = get_player_by_id(conn, disc_id)
