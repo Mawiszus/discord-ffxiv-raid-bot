@@ -950,8 +950,8 @@ async def send_cmd_help(ctx):
     em = discord.Embed(title=f'Usage: {ctx.prefix}{cmd.name} {cmd.signature}'.replace("<", "\"").replace(">", "\""),
                        color=discord.Color.dark_gold())
     em.description = cmd.help
-    em.set_footer(text="Check the [Documentation](https://github.com/Mawiszus/discord-ffxiv-raid-bot) "
-                       "for more detailed explanations.")
+    em.add_field(name="\u200B", value="Check the [Documentation](https://github.com/Mawiszus/discord-ffxiv-raid-bot) "
+                                      "for more detailed explanations.")
     return em
 
 
