@@ -68,6 +68,10 @@ class Event:
         dt_object = datetime.fromtimestamp(self.timestamp, tz)
         return dt_object.strftime("%d %B %Y %H:%M:%S %Z")
 
+    def get_discord_time_format(self) -> str:
+        """Returns the unix epoch formatted in a way Discord automatically displays the correct timezone"""
+        return "<t:" + self.timestamp.__str__() + ">"
+
     def participants_as_str(self):
         return string_from_list(self.participant_names)
 
