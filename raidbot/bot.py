@@ -947,8 +947,11 @@ async def on_command_error(ctx, error):
 
 async def send_cmd_help(ctx):
     cmd = ctx.command
-    em = discord.Embed(title=f'Usage: {ctx.prefix}{cmd.name} {cmd.signature}', color=discord.Color.dark_gold())
+    em = discord.Embed(title=f'Usage: {ctx.prefix}{cmd.name} {cmd.signature}'.replace("<", "\"").replace(">", "\""),
+                       color=discord.Color.dark_gold())
     em.description = cmd.help
+    em.set_footer(text="Check the [Documentation](https://github.com/Mawiszus/discord-ffxiv-raid-bot) "
+                       "for more detailed explanations.")
     return em
 
 
