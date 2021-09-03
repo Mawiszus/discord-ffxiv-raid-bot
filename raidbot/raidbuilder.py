@@ -51,7 +51,7 @@ class Character:
                 raise SyntaxError(f"{job} already registered")
             elif job in CLASSES:
                 raise SyntaxError(f"{job} is a class. Please be a responsible Warrior of Light and equip your "
-                                  f"job/soul stone.")
+                                  f"job/soul stone")
             else:
                 raise SyntaxError(f"{job} is not a valid job")
 
