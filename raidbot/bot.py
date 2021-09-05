@@ -438,7 +438,7 @@ async def close_event(ctx, ev_id, maximize_diverse_dps=True, use_benched_counter
                                                 description=f"will be run **UNDERSIZED**",
                                                 color=discord.Color.dark_gold())
                         new_emb.add_field(name="**Time**",
-                                          value=f"[{event.get_time()}]({build_countdown_link(event.timestamp)})",
+                                          value=f"[{event.get_discord_time_format()}]({build_countdown_link(event.timestamp)})",
                                           inline=False)
                         signed_str, _ = event.signed_in_and_benched_as_strs()
                         if signed_str:
@@ -520,7 +520,7 @@ async def close_event(ctx, ev_id, maximize_diverse_dps=True, use_benched_counter
                                                     description=f"will be run **MANUAL**",
                                                     color=discord.Color.dark_gold())
                             new_emb.add_field(name="**Time**",
-                                              value=f"[{event.get_time()}]({build_countdown_link(event.timestamp)})",
+                                              value=f"[{event.get_discord_time_format()}]({build_countdown_link(event.timestamp)})",
                                               inline=False)
                             signed_str, bench_str = event.signed_in_and_benched_as_strs()
                             if signed_str:

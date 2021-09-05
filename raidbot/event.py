@@ -97,7 +97,7 @@ class Event:
               f"Name:           {self.name}\n" \
               f"Participants:   {name_string}\n" \
               f"Jobs:           {jobs_string}\n" \
-              f"Time:           {self.get_time()}\n" \
+              f"Time:           {self.get_discord_time_format()}\n" \
               f"This event is {self.state}.```"
         return out
 
