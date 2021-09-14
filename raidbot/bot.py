@@ -129,7 +129,7 @@ def make_event_embed(ev: Event, guild, add_legend=False):
                           color=discord.Color.dark_gold())
     embed.add_field(name="**Name**", value=ev.name, inline=False)
     embed.add_field(name="**Time**", value=f"{event.get_discord_time_format()} -> [Countdown]"
-                                                    f"({build_countdown_link(event.timestamp)})", inline=False)
+                                           f"({build_countdown_link(event.timestamp)})", inline=False)
 
     signed_str, bench_str = ev.signed_in_and_benched_as_strs()
     if signed_str:
@@ -439,7 +439,7 @@ async def close_event(ctx, ev_id, maximize_diverse_dps=True, use_benched_counter
                                                 description=f"will be run **UNDERSIZED**",
                                                 color=discord.Color.dark_gold())
                         new_emb.add_field(name="**Time**",
-                                          value=f"[{event.get_discord_time_format()} -> [Countdown]"
+                                          value=f"{event.get_discord_time_format()} -> [Countdown]"
                                                 f"({build_countdown_link(event.timestamp)})",
                                           inline=False)
                         signed_str, _ = event.signed_in_and_benched_as_strs()
